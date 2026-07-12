@@ -1,0 +1,24 @@
+{
+  "name": "generic-fdm-pla",
+  "process": "fdm",
+  "nozzle": 0.4,
+  "layer_height": 0.2,
+  "build_volume": [
+    220.0,
+    220.0,
+    250.0
+  ],
+  "hole_compensation": 0.15,
+  "peg_compensation": 0.1,
+  "elephant_foot": 0.3,
+  "fit_press": 0.0,
+  "fit_snug": 0.1,
+  "fit_slide": 0.25,
+  "fit_free": 0.45,
+  "min_wall": 1.2,
+  "min_hole_dia": 2.0,
+  "max_overhang": 50.0,
+  "max_bridge": 25.0,
+  "notes": "Defaults for a 0.4mm nozzle on PLA. NOT measured. Print out/calibration.stl, measure it, replace these, and set calibrated: true.",
+  "calibrated": false
+}
