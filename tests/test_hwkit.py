@@ -226,3 +226,65 @@ def test_reference_design_validates_and_has_no_errors():
     reports = build().validate(samples=800)
     failed = [r.name for r in reports if not r.ok]
     assert not failed, f"reference design regressed: {failed}"
+
+
+# --- bought components -------------------------------------------------------
+
+
+def test_unverified_component_stops_the_design():
+    """The gate. A mount is a negative of a component, and a negative of a guess
+    is scrap — so a component nobody has measured must not reach a printer."""
+    from hwkit import SG90, Assembly, MissingComponentData
+
+    asm = Assembly("x", P)
+    with pytest.raises(MissingComponentData, match="NOT verified"):
+        asm.bought("servo", SG90)
+
+
+def test_verified_component_passes_and_brings_its_keepouts():
+    from hwkit import NEMA17, Assembly
+
+    asm = Assembly("x", P)
+    env = asm.bought("motor", NEMA17)
+    body_only = NEMA17.body().volume
+    assert env.volume > body_only  # the cable keepout is in there too
+    assert asm.components["motor"] is NEMA17
+
+
+def test_require_names_what_to_measure():
+    from hwkit import MissingComponentData, require
+
+    with pytest.raises(MissingComponentData, match="connector position"):
+        require("some ToF sensor", "sensor")
+
+
+def test_component_datum_puts_penetrating_features_below_zero():
+    """NEMA 17 sits on the plate (+Z) and puts its boss and shaft through it (-Z).
+    That sign is how a bracket learns it needs a bore."""
+    from hwkit import NEMA17
+
+    bb = NEMA17.body().bounding_box()
+    assert bb.max.Z == pytest.approx(48.0)  # body, on the component's side
+    assert bb.min.Z == pytest.approx(-24.0)  # shaft, through the plate
+
+
+def test_mount_holes_cut_the_real_pattern():
+    from build123d import Box, BuildPart, Locations, Plane
+    from hwkit import NEMA17, MountHoles
+
+    with BuildPart() as p:
+        Box(60, 60, 10, align=(Align.CENTER, Align.CENTER, Align.MAX))
+        with Locations(Plane.XY):
+            MountHoles(NEMA17, kind="insert", profile=P)
+    assert p.part.is_valid and p.part.is_manifold
+    assert p.part.volume < 60 * 60 * 10
+    # four bosses, at the 31mm square pattern
+    assert len(NEMA17.mounts) == 4
+    assert {abs(m.x) for m in NEMA17.mounts} == {15.5}
+
+
+def test_motor_mount_design_has_no_interference():
+    from designs.motor_mount import build
+
+    reports = build().validate(samples=800)
+    assert not [r.name for r in reports if not r.ok]

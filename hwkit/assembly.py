@@ -25,6 +25,7 @@ from pathlib import Path
 
 from build123d import Compound, Location, Part, Rotation, export_step, export_stl
 
+from .components import Component
 from .profile import DEFAULT, PrinterProfile
 from .validate import Report, check_clearance, check_interference, check_part
 
@@ -63,6 +64,7 @@ class Assembly:
         self.name = name
         self.profile = profile
         self.parts: dict[str, PrintedPart] = {}
+        self.components: dict[str, Component] = {}
         self.hardware: list[Hardware] = []
         self.steps: list[str] = []
         self.moving: list[tuple[str, str, float]] = []
@@ -92,8 +94,23 @@ class Assembly:
         )
         return part
 
-    def bought(self, name: str, part: Part, **kw) -> Part:
-        """A part you buy, modelled so the checks can see it. Never exported."""
+    def bought(self, name: str, thing: Part | Component, **kw) -> Part:
+        """A part you buy, modelled so the checks can see it. Never exported.
+
+        Pass a `Component` and you get its envelope — body *plus* keepouts — so
+        the interference check sees the connector you have to plug in and the arc
+        the servo horn sweeps, not just the case. Passing a bare `Part` is for
+        raw stock: a length of rod, a sheet of ply.
+
+        A component nobody has verified stops the design here, on purpose.
+        """
+        if isinstance(thing, Component):
+            thing.check()  # raises MissingComponentData if the numbers are guesses
+            self.components[name] = thing
+            part = thing.envelope()
+            kw.setdefault("note", f"{thing.name} — {thing.source}")
+        else:
+            part = thing
         return self.add(name, part, printed=False, qty=0, **kw)
 
     def buy(self, item: str, qty: int, note: str = "") -> None:
@@ -168,6 +185,30 @@ class Assembly:
             lines += ["", "## Buy", "", "| item | qty | notes |", "|---|---|---|"]
             for h in self.hardware:
                 lines.append(f"| {h.item} | {h.qty} | {h.note} |")
+
+        if self.components:
+            lines += [
+                "",
+                "## Components this design was cut around",
+                "",
+                "If a part does not fit, start here: the mount is a negative of these "
+                "numbers, so a wrong number is a wrong bracket.",
+                "",
+                "| component | dimensions from | mass |",
+                "|---|---|---|",
+            ]
+            for c in self.components.values():
+                mass = f"{c.mass_g}g" if c.mass_g else "—"
+                lines.append(f"| {c.name} | {c.source} | {mass} |")
+            reasons = [
+                (c.name, why)
+                for c in self.components.values()
+                for why in c.keepout_reasons()
+            ]
+            if reasons:
+                lines += ["", "**Kept clear on purpose** — do not fill these in later:", ""]
+                for name, why in reasons:
+                    lines.append(f"- {name}: {why}")
 
         lines += [
             "",

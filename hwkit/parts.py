@@ -1,9 +1,9 @@
-"""Off-the-shelf parts: bearings, shafts, and module footprints.
+"""Off-the-shelf mechanical parts: bearings and shafts.
 
-The bearing and shaft tables are industry-standard sizes and safe to trust.
-The footprints are the ones worth hard-coding; for anything else you buy, put a
-caliper on it before you commit to a print. A footprint that is 0.5mm off is a
-part that does not fit, and a spool you have already spent.
+These two tables are industry-standard sizes and safe to trust. Everything else
+you buy — servos, boards, batteries, motors — is a `Component` (see
+`hwkit/components.py`), because it collides on its connector and its cable, not
+on its bolt circle, and a bolt circle cannot express that.
 """
 
 from __future__ import annotations
@@ -43,38 +43,6 @@ BEARINGS = {
 
 # Ground steel rod, the common linear-motion diameters (mm).
 SHAFTS = (3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0)
-
-
-@dataclass(frozen=True)
-class Footprint:
-    """A mounting pattern for a bought module. Hole centres are module-local,
-    origin at the module centre."""
-
-    name: str
-    size: tuple[float, float]
-    holes: tuple[tuple[float, float], ...]
-    hole_dia: float
-    note: str = ""
-
-
-NEMA17 = Footprint(
-    name="NEMA 17 stepper",
-    size=(42.3, 42.3),
-    holes=((-15.5, -15.5), (15.5, -15.5), (-15.5, 15.5), (15.5, 15.5)),
-    hole_dia=3.0,  # M3
-    note="31mm square pattern. 22mm pilot boss, 2mm proud. 5mm output shaft. "
-    "Body length varies by model (34 / 40 / 48mm) — check yours.",
-)
-
-RPI4 = Footprint(
-    name="Raspberry Pi 4B / 5",
-    size=(85.0, 56.0),
-    holes=((-29.0, -24.5), (29.0, -24.5), (-29.0, 24.5), (29.0, 24.5)),
-    hole_dia=2.75,  # M2.5
-    note="58 x 49mm pattern, 3.5mm in from the board edges.",
-)
-
-FOOTPRINTS = {f.name: f for f in (NEMA17, RPI4)}
 
 
 def _drill(radius: float, depth: float, z_top: float = 0.0) -> Solid:

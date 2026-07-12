@@ -6,11 +6,31 @@
     P = load_profile()
     asm = Assembly("gizmo", P)
 
-Every clearance is derived from a PrinterProfile, so one calibration measurement
-propagates to every fit in the design.
+Two rules the rest of this follows from:
+
+  Every clearance derives from a measured `PrinterProfile`, never a literal, so
+  one calibration propagates to every fit in every design.
+
+  Every bought part is a `Component` — modelled, with its keepouts, before the
+  bracket that holds it exists. A mount is a negative of a component, and a
+  negative of a guess is scrap.
 """
 
 from .assembly import Assembly, Hardware, PrintedPart
+from .components import (
+    CELL_18650,
+    CHECKLIST,
+    COMPONENTS,
+    NEMA17,
+    RPI5,
+    SG90,
+    Component,
+    MissingComponentData,
+    Mount,
+    MountHoles,
+    Vol,
+    require,
+)
 from .fasteners import (
     M2,
     M2_5,
@@ -28,13 +48,9 @@ from .fasteners import (
 )
 from .parts import (
     BEARINGS,
-    FOOTPRINTS,
-    NEMA17,
-    RPI4,
     SHAFTS,
     Bearing,
     BearingPocket,
-    Footprint,
     ShaftBore,
 )
 from .profile import DEFAULT, PrinterProfile
@@ -56,6 +72,19 @@ __all__ = [
     "PrinterProfile",
     "DEFAULT",
     "load_profile",
+    # bought components: model these FIRST
+    "Component",
+    "Mount",
+    "Vol",
+    "MountHoles",
+    "COMPONENTS",
+    "CHECKLIST",
+    "MissingComponentData",
+    "require",
+    "NEMA17",
+    "RPI5",
+    "SG90",
+    "CELL_18650",
     # fasteners
     "Screw",
     "SCREWS",
@@ -70,15 +99,11 @@ __all__ = [
     "CounterSink",
     "InsertBoss",
     "NutPocket",
-    # bought parts
+    # mechanical
     "Bearing",
     "BEARINGS",
     "BearingPocket",
     "ShaftBore",
-    "Footprint",
-    "FOOTPRINTS",
-    "NEMA17",
-    "RPI4",
     "SHAFTS",
     # validation
     "Issue",

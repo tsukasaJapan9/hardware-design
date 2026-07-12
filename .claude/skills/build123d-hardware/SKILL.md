@@ -30,6 +30,77 @@ uv run python -m hwkit.calibrate           # the tolerance coupon
 
 ## The workflow
 
+### 0. Model the bought parts before you design anything
+
+**A mount is a negative of a component. A negative of a guess is scrap.**
+
+Servos, sensors, PCBs, batteries, motors — before a single bracket exists, each
+one is a `Component` in `hwkit/components.py` carrying its real dimensions, its
+mounting holes, and its **keepouts**. Nothing else in this workflow is allowed to
+start until that is done.
+
+A hole pattern is not enough, because parts do not collide on their screws. They
+collide on the USB plug nobody left room to insert, on the servo cable exiting
+where the wall is, on the horn sweeping through a bracket arm, on the battery
+that swelled a millimetre. Those are `keepout` volumes and the interference check
+treats them exactly like solid material.
+
+```python
+SOME_SENSOR = Component(
+    name="...", kind="sensor",
+    source="measured with calipers, 2026-07-13",   # or the datasheet
+    verified=True,                                  # only after a human checked
+    vols=(
+        Vol("box", (25.0, 11.0, 1.6), at=(0, 0, 0), why="the PCB"),
+        Vol("box", (8.0, 6.0, 12.0), at=(-8, 0, 1.6), role="keepout",
+            why="JST plug needs room to insert"),
+    ),
+    mounts=(Mount(-9.0, 0.0, 2.2, "M2"), Mount(9.0, 0.0, 2.2, "M2")),
+)
+```
+
+**The datum.** z = 0 is the mounting plane, origin at the centre of the hole
+pattern. **+Z is the side the component is on. −Z is through the bracket** — a
+motor's pilot boss and shaft, a servo case hanging through a cutout, the solder
+tails under a PCB. That sign is how the bracket learns it needs a bore.
+
+Then `asm.bought("motor", NEMA17)` hands the checks the component's *envelope* —
+body plus keepouts — and `MountHoles(NEMA17, kind="insert")` cuts its pattern
+into whatever face you place it on.
+
+#### When you do not have the data: **ask the user. Do not estimate.**
+
+This is not optional and there is no fallback. If a component is not in the
+library, or is in it with `verified=False`, the design **stops**:
+
+```
+MissingComponentData: 'SG90 micro servo' is in the library but NOT verified.
+These numbers are nominal. Ask the user to confirm them against the part in
+their hand before anything gets printed.
+```
+
+When that fires, or when the user names a part you have no model for, **stop and
+ask them**, quoting the checklist (`hwkit.components.CHECKLIST[kind]`) for what
+to measure:
+
+> To design this bracket I need the SG90's actual dimensions — clones vary
+> between batches. Could you measure yours, or send me the datasheet?
+> - body length x width x height (the case, not the tabs)
+> - hole spacing between tab hole centres, and the hole diameter
+> - output shaft: how far from the hole pattern centre, along which axis
+> - how far the horn sticks out, and its swept diameter
+> - which face the cable leaves from, and how much room the bend needs
+
+Do not measure a part from a photograph, do not average what the internet says,
+and do not proceed with a placeholder "to be refined later" — there is no later,
+there is a printed bracket that does not fit. Once the user answers, add the
+`Component` with `source=` recording where the numbers came from, set
+`verified=True`, and only then design.
+
+The library ships `NEMA17` and `RPI5` as verified (published standards), and
+`SG90` and `CELL_18650` as nominal-but-unverified, which is to say: as a
+conversation starter with the user, not as a licence to print.
+
 ### 1. Calibrate first, once per printer + material
 
 Do this before trusting any fit. It is the difference between a press fit and a
@@ -116,6 +187,10 @@ pattern.
 
 ## Doctrine
 
+**Never design around a component you have not modelled.** And never model one
+from a guess — ask. See step 0; it is the one that costs the most when skipped,
+because a bracket cut around wrong numbers looks perfect until it is in your hand.
+
 **Never model a printed thread.** Use `InsertBoss` (heat-set, reusable, strong),
 or `NutPocket` (captive nut, free), in that order. Self-tapping into a plain hole
 is for light loads and one assembly cycle.
@@ -142,13 +217,19 @@ a surface that has to mate with something.
 
 ## Where things are
 
-- `hwkit/profile.py` — the `PrinterProfile` and the fit model. Read this first.
+- `hwkit/components.py` — **start here.** `Component` `Vol` `Mount` `MountHoles`,
+  the datum convention, the measurement checklists, and the gate that stops a
+  design built on guessed dimensions.
+- `hwkit/profile.py` — the `PrinterProfile` and the fit model.
 - `hwkit/fasteners.py` — `ClearanceHole` `CounterBore` `CounterSink` `InsertBoss`
   `NutPocket`, and the M2–M6 dimension table.
-- `hwkit/parts.py` — `BearingPocket` `ShaftBore`, bearing/shaft/footprint tables.
+- `hwkit/parts.py` — `BearingPocket` `ShaftBore`, bearing and shaft tables.
 - `hwkit/validate.py` — the checks, and why each one is written the way it is.
 - `hwkit/assembly.py` — `Assembly`, the two frames, BOM and export.
-- `designs/roller_bracket.py` — the reference design. Copy its shape.
+- `designs/motor_mount.py` — designing around a bought component. Copy this when
+  the design holds something you bought.
+- `designs/roller_bracket.py` — fits, bearings, and a running clearance.
+- `references/components.md` — how to measure a part, and what to ask the user for.
 - `references/design-rules.md` — the numbers, and why they are what they are.
 - `references/build123d-api.md` — **read this before writing build123d code.** It
   is the list of things that will otherwise cost you an hour each.
