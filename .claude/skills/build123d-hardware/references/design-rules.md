@@ -110,6 +110,27 @@ bottom than the model says.
 Chamfer the bottom edge by `P.elephant_foot` (0.3mm default). It is one line and
 it is the difference between a part that seats and a part that rocks.
 
+## "It fits" and "it goes in" are different claims
+
+Two solids that do not overlap are not two parts that assemble.
+
+A lid modelled at exactly the size of its cavity has **zero** overlap. It passes
+every interference check. It comes off the bed at 65.15mm and it does not go in.
+
+And a part can have room where it ends up and still be impossible to get there —
+a bearing behind a retaining lip, a nut dropped into a pocket with no mouth. In
+its final position nothing whatsoever is wrong.
+
+So state the requirement instead of hoping for it:
+
+```python
+asm.goes_in("lid", "box", direction=(0, 0, 1), clearance=P.gap("slide"))
+```
+
+The rule of thumb underneath it: **anything that goes into anything needs a gap
+you chose on purpose.** `P.gap("slide")` for a lid or a cover, `P.gap("snug")`
+where it also has to locate. Never zero.
+
 ## Bearings
 
 - The pocket takes the **outer** race. `BearingPocket` bores through the lip

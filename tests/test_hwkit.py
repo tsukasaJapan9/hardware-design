@@ -15,9 +15,11 @@ from build123d import (
     Axis,
     Box,
     BuildPart,
+    Cylinder,
     Hole,
     Location,
     Locations,
+    Mode,
     Plane,
     chamfer,
     fillet,
@@ -285,6 +287,106 @@ def test_mount_holes_cut_the_real_pattern():
 
 def test_motor_mount_design_has_no_interference():
     from designs.motor_mount import build
+
+    reports = build().validate(samples=800)
+    assert not [r.name for r in reports if not r.ok]
+
+
+# --- insertion: can it be got into place, and does it have room there? --------
+#
+# These are the tests that justify check_insertion existing at all. If
+# check_interference already covered these cases, the check would be dead weight.
+
+
+def _jar_with_a_narrow_mouth():
+    """Cavity 34mm wide, but an inward lip leaves only a 28mm opening."""
+    with BuildPart() as jar:
+        Box(40, 40, 30, align=(Align.CENTER, Align.CENTER, Align.MIN))
+        offset(amount=-3, openings=jar.faces().sort_by(Axis.Z)[-1])
+        with Locations((0, 0, 27)):
+            Box(34, 34, 3, align=(Align.CENTER, Align.CENTER, Align.MIN))
+        with Locations((0, 0, 27)):
+            Box(28, 28, 3, align=(Align.CENTER, Align.CENTER, Align.MIN),
+                mode=Mode.SUBTRACT)
+    return jar.part
+
+
+def test_zero_clearance_passes_interference_and_is_still_unbuildable():
+    """The failure that motivated this check.
+
+    A lid cut to exactly the size of its cavity overlaps NOTHING. Every
+    interference check ever written passes it. It will never go in, because a
+    printed part comes off the bed oversized. Room is not the absence of overlap.
+    """
+    from hwkit import check_insertion
+
+    with BuildPart() as box:
+        Box(40, 40, 20, align=(Align.CENTER, Align.CENTER, Align.MIN))
+        offset(amount=-3, openings=box.faces().sort_by(Axis.Z)[-1])
+
+    exact = Box(34, 34, 4, align=(Align.CENTER, Align.CENTER, Align.MIN)).moved(
+        Location((0, 0, 10))
+    )  # cavity is 34 x 34. This is 34 x 34.
+
+    assert check_interference({"box": box.part, "lid": exact}).ok, (
+        "interference is supposed to be blind to this — that is the whole point"
+    )
+    rep = check_insertion(exact, box.part, (0, 0, 1), 20.0, clearance=0.2,
+                          names=("lid", "box"))
+    assert not rep.ok
+    assert "side room" in rep.errors[0].message
+
+
+def test_a_lid_with_room_goes_in():
+    from hwkit import check_insertion
+
+    with BuildPart() as box:
+        Box(40, 40, 20, align=(Align.CENTER, Align.CENTER, Align.MIN))
+        offset(amount=-3, openings=box.faces().sort_by(Axis.Z)[-1])
+
+    lid = Box(33.6, 33.6, 4, align=(Align.CENTER, Align.CENTER, Align.MIN)).moved(
+        Location((0, 0, 10))
+    )  # 0.2mm a side
+    assert check_insertion(lid, box.part, (0, 0, 1), 20.0, clearance=0.2).ok
+
+
+def test_part_that_fits_but_cannot_be_inserted():
+    """Fits where it ends up; cannot reach there. Final-position interference is
+    structurally incapable of seeing this, because in the final position there is
+    genuinely nothing wrong."""
+    from hwkit import check_insertion
+
+    jar = _jar_with_a_narrow_mouth()
+    block = Box(32, 32, 10, align=(Align.CENTER, Align.CENTER, Align.MIN)).moved(
+        Location((0, 0, 3))
+    )
+
+    assert check_interference({"jar": jar, "block": block}).ok
+    rep = check_insertion(block, jar, (0, 0, 1), 25.0, clearance=0.3,
+                          names=("block", "jar"))
+    assert not rep.ok
+    assert "cannot get there" in rep.errors[0].message
+
+
+def test_seated_contact_is_not_a_collision():
+    """A lid resting on its posts touches the box. Touching is how it works."""
+    from hwkit import check_insertion
+
+    with BuildPart() as box:
+        Box(40, 40, 20, align=(Align.CENTER, Align.CENTER, Align.MIN))
+        offset(amount=-3, openings=box.faces().sort_by(Axis.Z)[-1])
+        with Locations((0, 0, 3)):
+            Cylinder(4, 12, align=(Align.CENTER, Align.CENTER, Align.MIN))
+
+    lid = Box(33.6, 33.6, 5, align=(Align.CENTER, Align.CENTER, Align.MIN)).moved(
+        Location((0, 0, 15))  # sits exactly on the 15mm-high post
+    )
+    assert check_interference({"box": box.part, "lid": lid}).ok
+    assert check_insertion(lid, box.part, (0, 0, 1), 20.0, clearance=0.2).ok
+
+
+def test_parts_box_example_validates():
+    from examples.parts_box import build
 
     reports = build().validate(samples=800)
     assert not [r.name for r in reports if not r.ok]

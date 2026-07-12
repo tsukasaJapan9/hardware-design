@@ -170,7 +170,24 @@ Errors block the print. Warnings are a decision you make on purpose:
 | `hole` | holes too small to survive printing | warn |
 | `overhang` | downward surface past the support angle; flags flat ceilings as bridges | warn |
 | `interference` | two parts in the same space — the assembly is impossible | error |
+| `insertion` | a part that cannot be *got* to where it fits, or that has no room once there | error |
 | `clearance` | a part that must move has nowhere to move | error |
+
+**`interference` is not enough, and this is the trap.** It asks whether two solids
+overlap. A lid cut to exactly the size of its cavity overlaps *nothing* — it passes
+— and it will never go in, because a lid modelled at 65.00mm comes off the bed at
+65.15mm. Room is not the absence of overlap; room is being able to move and still
+not touch. So for anything that has to be *put into* something — a lid, a bearing,
+a nut in a pocket, a board between standoffs — declare it:
+
+```python
+asm.goes_in("lid", "box", direction=(0, 0, 1), clearance=P.gap("slide"))
+```
+
+That walks the part back out along its path, and at every step asks both *does it
+collide* (catching the bearing behind a lip, which fits perfectly where it ends up
+and cannot reach there) and *can it be nudged sideways by the clearance and still
+not touch* (catching the zero-gap fit that interference is structurally blind to).
 
 Take the warnings seriously. On the reference design the overhang check found
 four 1mm² undercut lips where a counterbore had bitten into a fillet — invisible
@@ -226,6 +243,8 @@ a surface that has to mate with something.
 - `hwkit/parts.py` — `BearingPocket` `ShaftBore`, bearing and shaft tables.
 - `hwkit/validate.py` — the checks, and why each one is written the way it is.
 - `hwkit/assembly.py` — `Assembly`, the two frames, BOM and export.
+- `examples/parts_box.py` — the simplest complete design: a lid that has to go in.
+  Start here.
 - `designs/motor_mount.py` — designing around a bought component. Copy this when
   the design holds something you bought.
 - `designs/roller_bracket.py` — fits, bearings, and a running clearance.

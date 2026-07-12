@@ -18,7 +18,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-from build123d import Axis, GeomType, Part, Vector
+from build123d import Axis, GeomType, Location, Part, Vector
 from OCP.BRepAdaptor import BRepAdaptor_Surface
 from OCP.BRepTools import BRepTools
 
@@ -392,6 +392,98 @@ def check_interference(
                     f"{a} and {b} overlap by {overlap:.2f} mm3",
                     (c.X, c.Y, c.Z),
                 )
+    return rep
+
+
+def check_insertion(
+    moving: Part,
+    fixed: Part,
+    direction: tuple[float, float, float],
+    distance: float,
+    *,
+    clearance: float,
+    steps: int = 6,
+    names: tuple[str, str] = ("part", "assembly"),
+) -> Report:
+    """Can the part actually be got into place, and does it have room once there?
+
+    `direction` is the way the part travels to come OUT, `distance` how far until
+    it is clear. The part is walked back along that path from its seated position,
+    and at every step two things are asked.
+
+    **Does it collide?** This catches the part that fits perfectly where it ends up
+    but cannot reach there — a bearing behind a lip, a nut in a pocket with no
+    mouth. Final-position interference is blind to it, because in the final
+    position there is nothing wrong.
+
+    **Can it be nudged sideways by `clearance` and still not collide?** This is the
+    one that matters, and it is the reason overlap alone is not enough. A lid cut
+    to exactly the size of its cavity has *zero* overlap — it passes every
+    interference check ever written — and it will not go in, because a printed lid
+    that measures 65.00mm in CAD comes off the bed at 65.15mm. Room is not the
+    absence of overlap. Room is being able to move and still not touch.
+
+    Seated contact is fine: the lid rests on its posts, and sliding it sideways
+    does not change that. Only lateral collision is reported.
+    """
+    a, b = names
+    rep = Report(f"insertion: {a} into {b}")
+    rep.stats["path"] = f"{distance:.0f}mm along {direction}, {steps} steps"
+    rep.stats["needs"] = f"{clearance:.2f}mm of side room"
+
+    d = Vector(*direction).normalized()
+    # Any two directions across the path. Which two does not matter; what matters
+    # is that we push the part around in the plane it has to slide through.
+    seed = Vector(0, 0, 1) if abs(d.Z) < 0.9 else Vector(1, 0, 0)
+    u = d.cross(seed).normalized()
+    v = d.cross(u).normalized()
+
+    blocked: tuple[float, float] | None = None  # (t, overlap)
+    tight: tuple[float, float] | None = None  # (t, overlap when nudged)
+
+    for i in range(steps + 1):
+        t = distance * i / steps
+        along = moving.moved(Location(d * t))
+        try:
+            overlap = (along & fixed).volume
+        except Exception:
+            continue
+        if overlap > TOUCH_VOL and (blocked is None or overlap > blocked[1]):
+            blocked = (t, overlap)
+
+        for lateral in (u, -u, v, -v):
+            nudged = moving.moved(Location(d * t + lateral * clearance))
+            try:
+                ov = (nudged & fixed).volume
+            except Exception:
+                continue
+            if ov > TOUCH_VOL and (tight is None or ov > tight[1]):
+                tight = (t, ov)
+
+    if blocked is not None:
+        t, overlap = blocked
+        rep.add(
+            "insertion",
+            "error",
+            f"{a} collides with {b} by {overlap:.1f} mm3 at {t:.1f}mm along the "
+            f"insertion path. It fits where it ends up and cannot get there — "
+            f"check for a lip, an undercut, or a boss in the way.",
+        )
+
+    if tight is not None:
+        t, ov = tight
+        where = "seated" if t < 1e-6 else f"{t:.1f}mm along the path"
+        rep.add(
+            "insertion",
+            "error",
+            f"{a} has less than {clearance:.2f}mm of side room in {b} ({where}): "
+            f"nudging it sideways by that much drives {ov:.1f} mm3 into the other "
+            f"part. Zero overlap is not a fit — a printed part comes off the bed "
+            f"oversized, and with no room it does not go in.",
+        )
+
+    if rep.ok:
+        rep.stats["result"] = "goes in, and has room"
     return rep
 
 
