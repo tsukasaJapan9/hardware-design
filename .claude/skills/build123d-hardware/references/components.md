@@ -104,7 +104,7 @@ license a print. The code will not let them through.
 
 ## A worked example
 
-`designs/motor_mount.py`. The motor is modelled first — body, pilot boss, shaft,
+`examples/motor_mount.py`. The motor is modelled first — body, pilot boss, shaft,
 and the room the cable needs behind it. Only then is a bracket cut around it, and
 the interference check is the proof the bracket did not land on any of it.
 

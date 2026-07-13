@@ -24,9 +24,9 @@ seconds instead of after a four-hour print.
 uv sync
 uv run python -m hwkit.calibrate              # the tolerance coupon — print this first
 uv run python -m examples.parts_box          # the simplest complete design
-uv run python -m designs.motor_mount          # designing around a bought component
-uv run python -m designs.roller_bracket       # fits, bearings, running clearance
-uv run python -m designs.roller_bracket --export   # -> out/roller-bracket/
+uv run python -m examples.motor_mount          # designing around a bought component
+uv run python -m examples.roller_bracket       # fits, bearings, running clearance
+uv run python -m examples.roller_bracket --export   # -> out/roller-bracket/
 uv run pytest                                 # the checks are tested against known answers
 ```
 
@@ -67,8 +67,11 @@ hwkit/           the toolkit
   validate.py      the checks, and why each is written the way it is
   assembly.py      Assembly: joints, BOM, print orientation, export
   calibrate.py     the tolerance coupon
-examples/        parts_box.py — the simplest complete design. Start here
-designs/         motor_mount.py (bought components), roller_bracket.py (fits)
+examples/        the designs
+  parts_box.py     a lid that has to go in. The simplest complete design — start here
+  motor_mount.py   designing around a bought component (NEMA 17, keepouts and all)
+  roller_bracket.py  press fits, bearings, and a running clearance
+tools/view.py    send any of them to the OCP CAD viewer
 tests/           known-answer tests for the checks
 ```
 

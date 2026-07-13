@@ -8,8 +8,8 @@ make: a press fit (bearing into roller), a snug locating fit (shaft into
 bracket), a screw joint (bracket to base), and a running clearance (roller to
 bracket) that has to survive the tolerance stack or the roller binds.
 
-    uv run python -m designs.roller_bracket          # validate
-    uv run python -m designs.roller_bracket --export # write out/roller-bracket/
+    uv run python -m examples.roller_bracket          # validate
+    uv run python -m examples.roller_bracket --export # write out/roller-bracket/
 
 Section view for eyeballing the fits:
 

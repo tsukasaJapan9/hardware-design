@@ -9,8 +9,8 @@ Try deleting the cable keepout from NEMA17 and re-running: the design still
 passes, and the motor still does not fit, because you cannot check what you did
 not model.
 
-    uv run python -m designs.motor_mount
-    uv run python -m designs.motor_mount --export
+    uv run python -m examples.motor_mount
+    uv run python -m examples.motor_mount --export
 """
 
 from __future__ import annotations

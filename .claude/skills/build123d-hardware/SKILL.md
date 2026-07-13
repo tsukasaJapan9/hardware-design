@@ -23,9 +23,10 @@ them, so you find these problems in seconds instead of after a four-hour print.
 ## Run it
 
 ```bash
-uv run python -m designs.<name>            # validate, print the report
-uv run python -m designs.<name> --export   # validate, then write out/<name>/
-uv run python -m hwkit.calibrate           # the tolerance coupon
+uv run python -m examples.<name>            # validate, print the report
+uv run python -m examples.<name> --export   # validate, then write out/<name>/
+uv run python -m hwkit.calibrate            # the tolerance coupon
+uv run python -m tools.view <name>          # see it in the OCP CAD viewer
 ```
 
 ## The workflow
@@ -199,7 +200,7 @@ in a render, and each one a support scar on a mating face.
 and sat on Z=0 (so *do not rotate it in the slicer*), plus a STEP of the whole
 assembly in its assembled positions, plus `BOM.md` and `ASSEMBLY.md`.
 
-Refuse to export a design with errors. `designs/roller_bracket.py` shows the
+Refuse to export a design with errors. `examples/roller_bracket.py` shows the
 pattern.
 
 ## Doctrine
@@ -245,9 +246,9 @@ a surface that has to mate with something.
 - `hwkit/assembly.py` — `Assembly`, the two frames, BOM and export.
 - `examples/parts_box.py` — the simplest complete design: a lid that has to go in.
   Start here.
-- `designs/motor_mount.py` — designing around a bought component. Copy this when
+- `examples/motor_mount.py` — designing around a bought component. Copy this when
   the design holds something you bought.
-- `designs/roller_bracket.py` — fits, bearings, and a running clearance.
+- `examples/roller_bracket.py` — fits, bearings, and a running clearance.
 - `references/components.md` — how to measure a part, and what to ask the user for.
 - `references/design-rules.md` — the numbers, and why they are what they are.
 - `references/build123d-api.md` — **read this before writing build123d code.** It

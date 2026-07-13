@@ -223,7 +223,7 @@ def test_pockets_remove_material_at_their_locations():
 
 
 def test_reference_design_validates_and_has_no_errors():
-    from designs.roller_bracket import build
+    from examples.roller_bracket import build
 
     reports = build().validate(samples=800)
     failed = [r.name for r in reports if not r.ok]
@@ -286,7 +286,7 @@ def test_mount_holes_cut_the_real_pattern():
 
 
 def test_motor_mount_design_has_no_interference():
-    from designs.motor_mount import build
+    from examples.motor_mount import build
 
     reports = build().validate(samples=800)
     assert not [r.name for r in reports if not r.ok]
