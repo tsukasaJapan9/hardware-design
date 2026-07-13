@@ -59,6 +59,7 @@ from .validate import (
     Issue,
     Report,
     check_clearance,
+    check_insertion,
     check_interference,
     check_part,
 )
@@ -111,4 +112,5 @@ __all__ = [
     "check_part",
     "check_interference",
     "check_clearance",
+    "check_insertion",
 ]

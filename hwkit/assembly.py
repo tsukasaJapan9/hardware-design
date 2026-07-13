@@ -23,11 +23,17 @@ import copy
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from build123d import Compound, Location, Part, Rotation, export_step, export_stl
+from build123d import Compound, Location, Part, Rotation, Vector, export_step, export_stl
 
 from .components import Component
 from .profile import DEFAULT, PrinterProfile
-from .validate import Report, check_clearance, check_interference, check_part
+from .validate import (
+    Report,
+    check_clearance,
+    check_insertion,
+    check_interference,
+    check_part,
+)
 
 
 @dataclass
@@ -68,6 +74,7 @@ class Assembly:
         self.hardware: list[Hardware] = []
         self.steps: list[str] = []
         self.moving: list[tuple[str, str, float]] = []
+        self.insertions: list[tuple] = []
 
     # ---- authoring -------------------------------------------------------
 
@@ -123,6 +130,29 @@ class Assembly:
         """Two parts move relative to each other, and need this much room."""
         self.moving.append((a, b, min_gap))
 
+    def goes_in(
+        self,
+        moving: str,
+        into: str,
+        *,
+        direction: tuple[float, float, float] = (0, 0, 1),
+        distance: float | None = None,
+        clearance: float | None = None,
+    ) -> None:
+        """Declare that a part is put into place by moving it, and check it can be.
+
+        `direction` is the way it travels to come OUT; `distance` how far until it
+        is clear (defaults to the part's own height along that axis, doubled).
+
+        This is a different question from interference, and a more useful one. A
+        lid cut to exactly the size of its cavity overlaps nothing, passes every
+        interference check, and will not go in — because room is not the absence
+        of overlap, it is being able to move and still not touch. Declare this for
+        anything that has to be *got into* somewhere: a lid, a bearing, a nut in a
+        pocket, a board between standoffs.
+        """
+        self.insertions.append((moving, into, direction, distance, clearance))
+
     def mate(self, joint_a, joint_b, **kwargs) -> None:
         """Connect two build123d joints, placing b relative to a."""
         joint_a.connect_to(joint_b, **kwargs)
@@ -137,14 +167,35 @@ class Assembly:
         return Compound(children=[p.part for p in self.parts.values()])
 
     def validate(self, *, samples: int = 2000) -> list[Report]:
+        placed = self.placed()
         reports = [
             check_part(p.on_plate(), p.name, profile=self.profile, samples=samples)
             for p in self.parts.values()
             if p.printed
         ]
-        reports.append(check_interference(self.placed()))
+        reports.append(check_interference(placed))
         if self.moving:
-            reports.append(check_clearance(self.placed(), self.moving))
+            reports.append(check_clearance(placed, self.moving))
+
+        for moving, into, direction, distance, clearance in self.insertions:
+            part = placed[moving]
+            if distance is None:
+                # Far enough to be completely clear of whatever it came out of.
+                bb = part.bounding_box()
+                span = abs(Vector(*direction).normalized().dot(bb.size))
+                distance = max(span * 2, 10.0)
+            if clearance is None:
+                clearance = self.profile.gap("slide")
+            reports.append(
+                check_insertion(
+                    part,
+                    placed[into],
+                    direction,
+                    distance,
+                    clearance=clearance,
+                    names=(moving, into),
+                )
+            )
         return reports
 
     # ---- output ----------------------------------------------------------
@@ -228,6 +279,13 @@ class Assembly:
             return "\n".join(lines + ["_No steps recorded. Call `asm.step(...)`._", ""])
         for i, s in enumerate(self.steps, 1):
             lines.append(f"{i}. {s}")
+        if self.insertions:
+            lines += ["", "## Goes in by moving", ""]
+            for moving, into, direction, _dist, _clr in self.insertions:
+                lines.append(
+                    f"- **{moving}** into **{into}**, along {direction}. Checked that it "
+                    f"can actually get there, and that it has room once it has."
+                )
         if self.moving:
             lines += ["", "## Must move freely", ""]
             for a, b, gap in self.moving:
