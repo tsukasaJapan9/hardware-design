@@ -63,8 +63,15 @@
 | 造形板 | build plate |
 | 造形範囲 | build volume |
 | 多様体 | manifold |
+| 嵌合 | fit |
+| バカ穴 | clearance hole |
+| 止まり穴 | blind hole |
+| 積層ピッチ | layer height |
+| 法線 | normal |
+| データム | datum |
+| 較正 | calibration |
 
-定訳が無い語、英語のほうが通じる語は英語のまま。併記しない（keepout、footprint、datum）。
+定訳が無い語、英語のほうが通じる語は英語のまま。併記しない（keepout、footprint）。
 
 表に無い用語を使ったら、その場で表に追加し、同じコミットに含める。あとでまとめると、同じ語が
 場所によって違う訳になる。訳語を変えたときは、既存の日本語ファイルもまとめて揃える。

@@ -1,78 +1,74 @@
 ---
 name: build123d-hardware
-description: Design 3D-printable hardware in build123d that actually assembles — parametric parts, metal fasteners, bearings, joint-based assemblies, geometric validation (wall thickness, overhang, interference, running clearance), and print-ready STL/STEP/BOM export. Use when the user wants to design a bracket, mount, enclosure, mechanism, jig, or any printed part that has to mate with other parts or with bought hardware.
+description: build123d による 3D プリント部品の設計。実測プロファイル由来の公差、金属締結（熱圧入インサート・ナット・ネジ）、ベアリング、Joint による組立、幾何検証（肉厚・オーバーハング・干渉・挿入経路・すきま）、STL/STEP/部品表の出力。ブラケット、マウント、筐体、機構、治具など、他の部品と嵌め合う印刷部品を設計するときに使う。Use when designing 3D-printable brackets, mounts, enclosures, mechanisms or jigs that must mate with other parts or bought hardware.
 ---
 
-# Printable, assemblable hardware with build123d
+# build123d で「組み立てられる」部品を設計する
 
-A part that renders beautifully and cannot be assembled is a failure. The whole
-point of this toolkit is to close the gap between "the CAD looks right" and "the
-printed parts go together", and that gap is made of exactly four things:
+見た目が正しくても、組み立てられなければ失敗作。「CAD 上は合っている」と「刷った部品が
+組み上がる」のあいだには、4つの隔たりがある。
 
-1. **Tolerance.** A hole modelled at 3.0mm prints at about 2.85mm. Every fit in
-   the design comes from a measured `PrinterProfile`, never from a literal.
-2. **Fastening.** Printed threads strip. Real hardware — heat-set inserts,
-   captive nuts, machine screws — or the thing falls apart.
-3. **Manufacturability.** Overhangs droop, thin walls vanish, small holes close.
-4. **Interference.** Two parts cannot occupy the same space, and a part that has
-   to rotate needs somewhere to rotate into.
+1. **公差（tolerance）** — φ3.0 でモデリングした穴は約 2.85mm で出る。寸法はすべて実測済みの
+   `PrinterProfile` から導出し、数値を直接書かない。
+2. **締結** — 印刷したねじ山は舐める。熱圧入インサート（heat-set insert）・ナット・機械ねじ
+   を使う。
+3. **製造性** — オーバーハング（overhang）は垂れ、薄い壁は消え、小さい穴は潰れる。
+4. **干渉（interference）** — 部品どうしは同じ空間を占められない。回る部品には回るための
+   空間が要る。
 
-The first is a measurement, and the other three are checkable. `hwkit` checks
-them, so you find these problems in seconds instead of after a four-hour print.
+1つ目は測るしかない。残り3つは検査できるので、`hwkit` が検査する。問題が見つかるのは
+4時間の造形後ではなく、数秒後。
 
-## Run it
+## 実行
 
 ```bash
-uv run python -m examples.<name>            # validate, print the report
-uv run python -m examples.<name> --export   # validate, then write out/<name>/
-uv run python -m hwkit.calibrate            # the tolerance coupon
-uv run python -m tools.view <name>          # see it in the OCP CAD viewer
+uv run python -m examples.<name>            # 検証してレポートを表示
+uv run python -m examples.<name> --export   # 検証を通れば out/<name>/ へ出力
+uv run python -m hwkit.calibrate            # 較正クーポンの出力
+uv run python -m tools.view <name>          # OCP CAD ビューアで実形状を確認
 ```
 
-## The workflow
+## ワークフロー
 
-### 0. Model the bought parts before you design anything
+### 0. 設計より先に、買う部品のモデリング
 
-**A mount is a negative of a component. A negative of a guess is scrap.**
+ブラケットの形状は、保持する部品の寸法の裏返し。部品の寸法が推測なら、出来上がるのは
+推測を写した造形物。
 
-Servos, sensors, PCBs, batteries, motors — before a single bracket exists, each
-one is a `Component` in `hwkit/components.py` carrying its real dimensions, its
-mounting holes, and its **keepouts**. Nothing else in this workflow is allowed to
-start until that is done.
+サーボ、センサ、基板、バッテリー、モーター。設計を始める前に、それぞれを
+`hwkit/components.py` の `Component` として登録する。実寸法、取付穴、そして **keepout**。
+これが済むまで、後の工程は始めない。
 
-A hole pattern is not enough, because parts do not collide on their screws. They
-collide on the USB plug nobody left room to insert, on the servo cable exiting
-where the wall is, on the horn sweeping through a bracket arm, on the battery
-that swelled a millimetre. Those are `keepout` volumes and the interference check
-treats them exactly like solid material.
+ネジ穴の位置だけでは足りない。部品はネジではぶつからない。ぶつかるのは、挿す空間のない
+USB プラグ、壁に向かって出るサーボのケーブル、ブラケットの腕を掃くサーボホーン、1mm
+膨らんだバッテリー。これらを keepout 体積として持たせれば、干渉チェックが実体と同じ扱いで
+検査する。
 
 ```python
 SOME_SENSOR = Component(
     name="...", kind="sensor",
-    source="measured with calipers, 2026-07-13",   # or the datasheet
-    verified=True,                                  # only after a human checked
+    source="ノギスで実測、2026-07-13",     # またはデータシート名
+    verified=True,                          # 実物と照合して初めて True
     vols=(
-        Vol("box", (25.0, 11.0, 1.6), at=(0, 0, 0), why="the PCB"),
+        Vol("box", (25.0, 11.0, 1.6), at=(0, 0, 0), why="基板本体"),
         Vol("box", (8.0, 6.0, 12.0), at=(-8, 0, 1.6), role="keepout",
-            why="JST plug needs room to insert"),
+            why="JST コネクタの挿抜空間"),
     ),
     mounts=(Mount(-9.0, 0.0, 2.2, "M2"), Mount(9.0, 0.0, 2.2, "M2")),
 )
 ```
 
-**The datum.** z = 0 is the mounting plane, origin at the centre of the hole
-pattern. **+Z is the side the component is on. −Z is through the bracket** — a
-motor's pilot boss and shaft, a servo case hanging through a cutout, the solder
-tails under a PCB. That sign is how the bracket learns it needs a bore.
+**データム（datum）。** z = 0 が取付面。原点はネジ穴パターンの中心。**+Z が部品の載る側、
+−Z がブラケットを貫く側。** モーターのパイロットボスと軸、開口部から垂れ下がるサーボの
+筐体、基板裏のはんだ面 — 負の Z にある形状が「ブラケットのここに穴が要る」と伝える。
 
-Then `asm.bought("motor", NEMA17)` hands the checks the component's *envelope* —
-body plus keepouts — and `MountHoles(NEMA17, kind="insert")` cuts its pattern
-into whatever face you place it on.
+登録後は `asm.bought("motor", NEMA17)` がエンベロープ（本体 + keepout）を検査に渡し、
+`MountHoles(NEMA17, kind="insert")` が配置先の面に取付穴パターンを開ける。
 
-#### When you do not have the data: **ask the user. Do not estimate.**
+#### 寸法が分からないとき: ユーザーに訊く。推測しない
 
-This is not optional and there is no fallback. If a component is not in the
-library, or is in it with `verified=False`, the design **stops**:
+代替手段なし。ライブラリに無い部品、または `verified=False` の部品を使おうとすると、
+設計はそこで止まる。
 
 ```
 MissingComponentData: 'SG90 micro servo' is in the library but NOT verified.
@@ -80,49 +76,45 @@ These numbers are nominal. Ask the user to confirm them against the part in
 their hand before anything gets printed.
 ```
 
-When that fires, or when the user names a part you have no model for, **stop and
-ask them**, quoting the checklist (`hwkit.components.CHECKLIST[kind]`) for what
-to measure:
+これが出たら、あるいはモデルの無い部品をユーザーが指定したら、作業を止めて
+`hwkit.components.CHECKLIST[kind]` の項目を引用して訊く。
 
-> To design this bracket I need the SG90's actual dimensions — clones vary
-> between batches. Could you measure yours, or send me the datasheet?
-> - body length x width x height (the case, not the tabs)
-> - hole spacing between tab hole centres, and the hole diameter
-> - output shaft: how far from the hole pattern centre, along which axis
-> - how far the horn sticks out, and its swept diameter
-> - which face the cable leaves from, and how much room the bend needs
+> このブラケットの設計にはサーボの実寸法が必要です。SG90 は個体差が大きいので、
+> お手元のものを測っていただくか、データシートをいただけますか。
+> - 本体の長さ × 幅 × 高さ（タブではなく筐体）
+> - タブのネジ穴の中心間距離と、穴の直径
+> - 出力軸の位置（ネジ穴パターン中心からのずれと方向）
+> - ホーンの突出量と、回転が掃く直径
+> - ケーブルが出る面と、曲げに必要な空間
 
-Do not measure a part from a photograph, do not average what the internet says,
-and do not proceed with a placeholder "to be refined later" — there is no later,
-there is a printed bracket that does not fit. Once the user answers, add the
-`Component` with `source=` recording where the numbers came from, set
-`verified=True`, and only then design.
+写真から寸法を読まない。ネット上の値を平均しない。「あとで直す」前提の仮の値も置かない。
+1mm 違うブラケットは刷り直しになるだけ。回答が得られたら、出所を `source=` に記録した
+`Component` を追加し、`verified=True` にしてから設計に入る。
 
-The library ships `NEMA17` and `RPI5` as verified (published standards), and
-`SG90` and `CELL_18650` as nominal-but-unverified, which is to say: as a
-conversation starter with the user, not as a licence to print.
+質問は一度にまとめて出す。1項目ずつ訊いては設計に戻る、の繰り返しがユーザーには最悪。
 
-### 1. Calibrate first, once per printer + material
+ライブラリには `NEMA17` と `RPI5` が検証済み（公開規格）、`SG90` と `CELL_18650` が公称値・
+未検証として入っている。未検証の2つはユーザーへの質問の出発点であって、印刷の許可証では
+ない。
 
-Do this before trusting any fit. It is the difference between a press fit and a
-cracked part.
+### 1. 較正。プリンタと材料の組ごとに1回
+
+どの嵌合（fit）も、信用する前にこれ。圧入（press fit）が決まるか、ボスが割れるかの分かれ目。
 
 ```bash
 uv run python -m hwkit.calibrate    # -> out/calibration.stl
 ```
 
-Print it, measure it with calipers, write the numbers into `printer_profile.json`,
-set `"calibrated": true`. Until then every design carries an UNCALIBRATED warning
-on its BOM, which is honest — the numbers in `PrinterProfile()` are reasonable
-FDM/PLA defaults, not *your* printer.
+刷って、ノギスで測り、`printer_profile.json` に書き込み、`"calibrated": true` にする。
+それまで、すべての部品表に未較正の警告が載る。`PrinterProfile()` の既定値は FDM/PLA の
+一般的な値であって、目の前のプリンタの値ではないから。
 
-If the user has not calibrated, say so once and carry on. Do not pretend the
-default clearances are measured.
+未較正のままなら、その旨を一度伝えて先へ進む。既定値を実測値のように扱わない。
 
-### 2. Design the assembly, not the parts
+### 2. 部品ではなく、アセンブリの設計
 
-Parts are what falls out of an assembly. Start from `Assembly`, declare what
-mates to what with build123d joints, and declare what has to *move*:
+部品はアセンブリから導かれる結果。`Assembly` から始め、何と何が嵌まるかを build123d の
+Joint で宣言し、何が**動く**か・何が**入る**かも宣言する。
 
 ```python
 from build123d import *
@@ -133,123 +125,117 @@ P = load_profile()
 def bracket() -> Part:
     with BuildPart() as p:
         Box(40, 30, 5, align=(Align.CENTER, Align.CENTER, Align.MIN))
-        with Locations(Plane.XY.offset(5)):          # cut from the top face
+        with Locations(Plane.XY.offset(5)):          # 天面から掘る
             with Locations((-14, 0), (14, 0)):
-                CounterBore(M3, depth=5, profile=P)  # screw head sits flush
+                CounterBore(M3, depth=5, profile=P)  # ネジ頭は面一に沈む
     RigidJoint("foot", p.part, Location((0, 0, 0)))
     return p.part
 
 asm = Assembly("gizmo", P)
-b = asm.add("base", base(), support="none", note="inserts go in from the top")
+b = asm.add("base", base(), support="none", note="インサートは上面から")
 r = asm.add("bracket", bracket(), print_orientation=Rotation(0, 0, 0))
 asm.mate(b.joints["top"], r.joints["foot"])
-asm.must_move("roller", "bracket", 0.5)   # this is a promise the checks enforce
-asm.buy("M3 x 12 socket cap screw", 4, "bracket down to base")
-asm.step("Heat-set the four inserts into the base. Let them cool before you touch them.")
+asm.must_move("roller", "bracket", 0.5)              # 検証器が守らせる宣言
+asm.goes_in("lid", "box", direction=(0, 0, 1),       # 同上
+            clearance=P.gap("slide"))
+asm.buy("M3 x 12 六角穴付きボルト", 4, "ブラケット固定用")
+asm.step("ベースに M3 インサートを4個圧入。冷めるまで触らない。")
 ```
 
-Two frames, and confusing them is the easy mistake. `add()` snapshots the
-**design frame**, which is where printability and STL export live. `mate()` moves
-the part into the **assembly frame**, which is where interference and clearance
-live. That is why `print_orientation` still means something after the part has
-been rotated into place by a joint.
+座標系は2つ。混同が定番の失敗。`add()` が**設計座標系**のスナップショットを取り、印刷性の
+検査と STL 出力はそちらで行う。`mate()` は部品を**組立座標系**へ動かし、干渉とすきまは
+そちらで見る。Joint が部品を回した後でも `print_orientation` が意味を持つのは、この分離が
+あるから。
 
-### 3. Validate before you export
+### 3. 出力前の検証
 
 ```python
 for r in asm.validate():
     print(r)
 ```
 
-Errors block the print. Warnings are a decision you make on purpose:
+エラーは出力を止める。警告は、理解したうえで受け入れるかどうかの判断材料。
 
-| check | catches | severity |
+| チェック | 捕まえるもの | 深刻度 |
 |---|---|---|
-| `manifold` | broken solids, or one "part" that is secretly two loose pieces | error |
-| `bounds` | does not fit on the plate | error |
-| `wall` | thin walls, and the **web left between a hole and an edge** | error under 2x nozzle |
-| `hole` | holes too small to survive printing | warn |
-| `overhang` | downward surface past the support angle; flags flat ceilings as bridges | warn |
-| `interference` | two parts in the same space — the assembly is impossible | error |
-| `insertion` | a part that cannot be *got* to where it fits, or that has no room once there | error |
-| `clearance` | a part that must move has nowhere to move | error |
+| `manifold` | 壊れた形状。1部品のはずが実は2つの離れた塊 | エラー |
+| `bounds` | 造形範囲（build volume）に収まらない | エラー |
+| `wall` | 薄い壁。**穴と縁のあいだに残る薄肉**も | ノズル径2倍未満でエラー |
+| `hole` | 印刷で潰れる小径穴 | 警告 |
+| `overhang` | サポート必要角を超える下向き面。水平天井はブリッジ扱い | 警告 |
+| `interference` | 部品どうしの重なり。組立が物理的に不可能 | エラー |
+| `insertion` | 定位置まで**到達できない**、または入れるすきまが無い | エラー |
+| `clearance` | 動くべき部品に、動くすきまが無い | エラー |
 
-**`interference` is not enough, and this is the trap.** It asks whether two solids
-overlap. A lid cut to exactly the size of its cavity overlaps *nothing* — it passes
-— and it will never go in, because a lid modelled at 65.00mm comes off the bed at
-65.15mm. Room is not the absence of overlap; room is being able to move and still
-not touch. So for anything that has to be *put into* something — a lid, a bearing,
-a nut in a pocket, a board between standoffs — declare it:
+**干渉チェックだけでは足りない。ここが罠。** 干渉が見るのは「重なっているか」だけ。空洞と
+ぴったり同寸のフタは重なりゼロ — 干渉チェックを素通りして、そして入らない。65.00mm で
+モデリングしたフタは造形板（build plate）から 65.15mm で出てくる。**入るとは、重なって
+いないことではなく、動かしてもまだ触れないこと。**
+
+だから、どこかへ**入れる**もの — フタ、ベアリング、ポケットに落とすナット、スタンドオフの
+あいだの基板 — には宣言を付ける。
 
 ```python
 asm.goes_in("lid", "box", direction=(0, 0, 1), clearance=P.gap("slide"))
 ```
 
-That walks the part back out along its path, and at every step asks both *does it
-collide* (catching the bearing behind a lip, which fits perfectly where it ends up
-and cannot reach there) and *can it be nudged sideways by the clearance and still
-not touch* (catching the zero-gap fit that interference is structurally blind to).
+部品を挿入経路に沿って引き出しながら、各位置で2つを確認する。**ぶつからないか**（最終位置
+には収まるのに途中で引っかかるもの。リップの奥のベアリングなど。最終位置の干渉チェックには
+原理的に見えない）。**clearance ぶん横にずらしても触れないか**（すきまゼロの嵌め合い。
+干渉チェックには表現できない）。
 
-Take the warnings seriously. On the reference design the overhang check found
-four 1mm² undercut lips where a counterbore had bitten into a fillet — invisible
-in a render, and each one a support scar on a mating face.
+警告は軽視しない。参照設計では、座ぐり（counterbore）がフィレットに食い込んでできた
+1mm² のひさしをオーバーハングチェックが4箇所検出した。レンダリングでは見えず、放置すれば
+合わせ面にサポート痕が残るところだった。
 
-### 4. Export
+### 4. 出力
 
-`asm.export()` writes, per part, an STL already rotated to its print orientation
-and sat on Z=0 (so *do not rotate it in the slicer*), plus a STEP of the whole
-assembly in its assembled positions, plus `BOM.md` and `ASSEMBLY.md`.
+`asm.export()` の出力物。部品ごとに**印刷姿勢へ回して Z=0 に置いた** STL（スライサーで
+回転させないこと）、組立位置のままの STEP、`BOM.md`、`ASSEMBLY.md`。
 
-Refuse to export a design with errors. `examples/roller_bracket.py` shows the
-pattern.
+エラーが残る設計は出力しない。実装の型は `examples/parts_box.py`。
 
-## Doctrine
+## 原則
 
-**Never design around a component you have not modelled.** And never model one
-from a guess — ask. See step 0; it is the one that costs the most when skipped,
-because a bracket cut around wrong numbers looks perfect until it is in your hand.
+**モデリングしていない部品の周りを設計しない。** 推測でモデリングもしない — 訊く。
+手順0を飛ばした代償が最大。間違った寸法の周りを削ったブラケットは、手に取るまで
+完璧に見える。
 
-**Never model a printed thread.** Use `InsertBoss` (heat-set, reusable, strong),
-or `NutPocket` (captive nut, free), in that order. Self-tapping into a plain hole
-is for light loads and one assembly cycle.
+**印刷ねじ山を作らない。** 第一候補は `InsertBoss`（熱圧入。強く、再利用可）、次が
+`NutPocket`（ナット捕捉。追加費用ゼロ）。素穴へのタッピングは軽負荷かつ組立1回まで。
 
-**Never write a clearance as a literal.** `P.hole(3.0, "free")`, `P.bore(10.0,
-"press")`, `P.peg(6.0, "snug")`, `P.gap("slide")`. When the user recalibrates,
-every fit in every design updates. A `3.4` in the source does not.
+**すきまを数値で直接書かない。** `P.hole(3.0, "free")`、`P.bore(10.0, "press")`、
+`P.peg(6.0, "snug")`、`P.gap("slide")`。較正し直せば全設計の全嵌合が追随する。ソース中の
+`3.4` は追随しない。
 
-**Orient for strength, then for surface.** Layers peel apart under tension across
-the print direction; a bracket loaded in bending wants its layers running along
-the load, not across it. This is usually the real reason to pick an orientation,
-and support is a distant second.
+**姿勢は強度で決める。表面品質は二の次。** 層は積層方向を横切る引張で剥がれる。曲げを
+受けるブラケットでは、層が荷重方向に沿って走る向きに。姿勢を選ぶ本当の理由はたいてい
+こちらで、サポートの都合ではない。
 
-**Fillet the roots.** Where a rib or upright meets a plate is where printed parts
-snap, because the layers there are loaded in peel.
+**付け根にフィレット。** リブや立ち壁が板に取り付く隅が、印刷部品の折れる場所。層が
+引き剥がされる方向に力を受けるため。
 
-**Model bought parts** — bearings, shafts, motors — with `asm.bought()`. They are
-never exported, but the interference and clearance checks can only see what has
-been modelled, and the parts that collide in practice are usually the bought ones.
+**買う部品もモデリングする。** ベアリング、軸、モーターは `asm.bought()` で登録。出力は
+されないが、干渉チェックは**モデリングされたものしか見えない**。実際にぶつかるのは、
+たいてい買った部品のほう。
 
-**Design out the support.** A chamfer under an overhang, a teardrop instead of a
-round hole, a part split in two and screwed together — all better than support on
-a surface that has to mate with something.
+**サポートは設計で消す。** オーバーハング下の面取り、丸穴の代わりのティアドロップ、2分割
+してネジ留め。合わせ面にサポートを生やすより、どれも良い。
 
-## Where things are
+## ファイル案内
 
-- `hwkit/components.py` — **start here.** `Component` `Vol` `Mount` `MountHoles`,
-  the datum convention, the measurement checklists, and the gate that stops a
-  design built on guessed dimensions.
-- `hwkit/profile.py` — the `PrinterProfile` and the fit model.
+- `hwkit/components.py` — **最初に読む。** `Component` `Vol` `Mount` `MountHoles`、データム
+  規約、測定チェックリスト、未検証部品を止めるゲート。
+- `hwkit/profile.py` — `PrinterProfile` と嵌合の等級。
 - `hwkit/fasteners.py` — `ClearanceHole` `CounterBore` `CounterSink` `InsertBoss`
-  `NutPocket`, and the M2–M6 dimension table.
-- `hwkit/parts.py` — `BearingPocket` `ShaftBore`, bearing and shaft tables.
-- `hwkit/validate.py` — the checks, and why each one is written the way it is.
-- `hwkit/assembly.py` — `Assembly`, the two frames, BOM and export.
-- `examples/parts_box.py` — the simplest complete design: a lid that has to go in.
-  Start here.
-- `examples/motor_mount.py` — designing around a bought component. Copy this when
-  the design holds something you bought.
-- `examples/roller_bracket.py` — fits, bearings, and a running clearance.
-- `references/components.md` — how to measure a part, and what to ask the user for.
-- `references/design-rules.md` — the numbers, and why they are what they are.
-- `references/build123d-api.md` — **read this before writing build123d code.** It
-  is the list of things that will otherwise cost you an hour each.
+  `NutPocket`、M2〜M6 の寸法表。
+- `hwkit/parts.py` — `BearingPocket` `ShaftBore`、ベアリングと軸の寸法表。
+- `hwkit/validate.py` — 各チェックの実装と、その書き方になっている理由。
+- `hwkit/assembly.py` — `Assembly`、2つの座標系、部品表と出力。
+- `examples/parts_box.py` — 最小の完結した設計。「フタは入るのか」。最初に写す手本。
+- `examples/motor_mount.py` — 買った部品の周りを削る設計。
+- `examples/roller_bracket.py` — 圧入、ベアリング、回転部のすきま。
+- `references/components.md` — 部品の測り方と、ユーザーへの訊き方。
+- `references/design-rules.md` — 設計則の数値と、その根拠。
+- `references/build123d-api.md` — **build123d のコードを書く前に読む。** 1件につき約1時間を
+  節約する落とし穴の一覧。

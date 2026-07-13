@@ -1,153 +1,140 @@
-# Design rules for FDM parts that have to fit
+# FDM 部品の設計則
 
-Numbers for a 0.4mm nozzle, 0.2mm layers, PLA or PETG. They are defaults in
-`PrinterProfile`, and the ones marked **measure** are the ones the calibration
-coupon exists to replace.
+φ0.4 ノズル、積層ピッチ（layer height）0.2mm、PLA / PETG を想定した数値。すべて
+`PrinterProfile` の既定値であり、**実測**と付記した項目は較正クーポンの測定値で置き換える
+ためのもの。
 
-## Tolerance
+## 公差
 
-An FDM printer does not print what you model. The nozzle traces the inside of a
-hole with finite width and the plastic shrinks as it cools, so **holes come out
-undersized and pegs come out oversized**, both by roughly 0.1–0.2mm.
+FDM プリンタはモデル通りには刷らない。ノズルは有限の幅で穴の内周をなぞり、樹脂は冷えて
+縮む。結果、**穴は小さく、凸形状は大きく**出る。どちらも 0.1〜0.2mm 程度。
 
-This is why nothing in a design is a literal dimension:
+寸法を直接書かず、プロファイル経由で導出する理由がこれ。
 
-| you want | you call | default result |
+| 欲しいもの | 書き方 | 既定値での結果 |
 |---|---|---|
-| a hole a 3mm screw passes freely | `P.hole(3.0, "free")` | 3.60mm |
-| a hole that also locates the part | `P.hole(3.0, "snug")` | 3.25mm |
-| a pocket a 10mm bearing presses into | `P.bore(10.0, "press")` | 10.15mm |
-| a bore a 5mm shaft turns in | `P.hole(5.0, "slide")` | 5.40mm |
-| a peg that enters a 6mm hole | `P.peg(6.0, "snug")` | 5.80mm |
-| a lid that slides into a groove | `P.gap("slide")` | 0.20mm per side |
+| M3 ネジが素通りする穴 | `P.hole(3.0, "free")` | 3.60mm |
+| 位置決めを兼ねる穴 | `P.hole(3.0, "snug")` | 3.25mm |
+| φ10 ベアリングの圧入ポケット | `P.bore(10.0, "press")` | 10.15mm |
+| φ5 軸が回る穴 | `P.hole(5.0, "slide")` | 5.40mm |
+| φ6 穴に入るペグ | `P.peg(6.0, "snug")` | 5.80mm |
+| 溝に落とすフタ | `P.gap("slide")` | 片側 0.20mm |
 
-The fit classes, diametral, on top of the compensation:
+嵌合（fit）の等級。直径あたりで、寸法補正に上乗せされる値。
 
-| fit | clearance | for |
+| 等級 | すきま | 用途 |
 |---|---|---|
-| `press` | 0.00 | bearing outer race, dowel. Needs real force. **measure** |
-| `snug` | 0.10 | located, removable by hand |
-| `slide` | 0.25 | shaft in a plain bore, a lid in a groove |
-| `free` | 0.45 | a screw shank through a plate |
+| `press` | 0.00 | ベアリング外輪、ダウエルピン。力を掛けて押し込む。**実測** |
+| `snug` | 0.10 | 位置が決まり、手で外せる |
+| `slide` | 0.25 | 回る軸、溝に落とすフタ |
+| `free` | 0.45 | ネジのバカ穴（clearance hole） |
 
-**A press fit is the one you cannot guess.** Too loose and the bearing spins in
-its pocket and eats it. Too tight and the boss splits, usually a day later. Print
-the coupon.
+**圧入だけは推測できない。** 緩ければ外輪がポケット内で空転してポケットを削り、きつければ
+ボスが割れる。割れるのはたいてい翌日。クーポンを刷って測る。
 
-## Walls, holes, and everything thin
+## 壁と穴の最小寸法
 
-| rule | value | why |
+| 規則 | 値 | 根拠 |
 |---|---|---|
-| minimum wall | **1.2mm** (3 perimeters) | 2 perimeters have no infill between them and split |
-| absolute floor | 0.8mm (2 x nozzle) | below this the slicer silently drops the wall |
-| minimum hole | 2.0mm | smaller and it closes up; plan to drill it |
-| web between a hole and an edge | ≥ 1.2mm | this is where parts break, and nobody checks it by eye |
-| boss around a heat-set insert | ≥ 1 insert diameter of material all round | otherwise it splits when the insert goes in |
+| 最小肉厚 | **1.2mm**（外周3本） | 2本ではあいだにインフィルが入らず割れる |
+| 肉厚の下限 | 0.8mm（ノズル径2倍） | 下回るとスライサーが壁を出力しない |
+| 最小穴径 | 2.0mm | 下回ると潰れる。潰れたらドリルで開け直し |
+| 穴と縁のあいだの肉 | 1.2mm 以上 | **折れるのはここ。しかも誰も目視しない** |
+| インサート周りのボス | 全周にインサート径以上の肉 | 不足すると圧入の瞬間に割れる |
 
-The wall check finds all of these, including the web, which is the one that gets
-missed. A 4mm hole 2mm from the edge of a plate leaves a 0.0mm web and looks
-perfectly fine in a render.
+肉厚チェックはこれらを全部見つける。特に穴と縁のあいだの薄肉。板の端から 2mm の位置に
+φ4 の穴を開けると残りは 0mm だが、レンダリング上は何も起きていないように見える。
 
-## Overhang and bridging
+## オーバーハングとブリッジ
 
-Overhang is measured **from vertical**: a vertical wall is 0°, a flat ceiling is
-90°.
+角度は**鉛直から**測る。垂直壁が 0°、水平天井が 90°。
 
-| angle | what happens |
+| 角度 | 結果 |
 |---|---|
-| 0–45° | prints cleanly |
-| 45–55° | usually fine; the default threshold is 50° |
-| 55–80° | droops. Support, or redesign |
-| 80–90° | a bridge if it spans between two walls; spaghetti if it does not |
+| 0〜45° | 問題なく刷れる |
+| 45〜55° | おおむね可。既定のしきい値は 50° |
+| 55〜80° | 垂れる。サポートか設計変更 |
+| 80〜90° | 両端が支えられていればブリッジ。なければ垂れ落ちる |
 
-A bridge up to ~25mm prints acceptably between two anchors. An unanchored
-horizontal ceiling — the roof of a blind pocket — is not a bridge, it is a
-ceiling, and it needs support or a redesign.
+ブリッジは両端支持で 25mm 程度まで実用になる。支えのない水平天井 — 止まり穴
+（blind hole）の天井など — はブリッジではなくただの天井。サポートか設計変更が要る。
 
-**Design the support out instead of adding it.** In descending order of elegance:
+**サポートは付けるものではなく、設計で消すもの。** 有効な順に。
 
-- **Chamfer under the overhang.** A 45° chamfer under a boss or a lip is free.
-- **Teardrop a horizontal hole.** A round hole in a vertical wall has a 90°
-  overhang at its apex. Small ones (≤ 5mm) bridge fine and are not worth the
-  ugliness; large ones want a teardrop.
-- **Split the part** and screw it together. Two parts each printing flat, with
-  no support and better layer orientation, beat one heroic part every time.
-- **Reorient.** Free, and usually the right answer — but check what it does to
-  the layer direction before you accept it.
+- **オーバーハングの下に面取り。** ボスやリップの下の 45° 面取りは無償の解決策
+- **横向きの丸穴はティアドロップに。** 垂直壁の丸穴は頂点が 90° になる。φ5 以下は
+  ブリッジで渡るので形を崩す価値なし。大径はティアドロップ
+- **2分割してネジ留め。** それぞれ平置き・サポートなし・良い層方向で刷れる2部品は、
+  無理をした1部品に常に勝る
+- **姿勢の変更。** 無償で、たいてい正解。ただし層方向への影響を先に確認
 
-## Strength and orientation
+## 強度と造形姿勢
 
-Layers peel. A printed part is roughly **half as strong across the layers as
-along them**, and the failure is sudden.
+層は剥がれる。印刷部品の強度は、**層を横切る方向では層に沿う方向の半分程度**。破壊は前触れ
+なく起きる。
 
-- Orient so the load runs **along** the layers, not across them.
-- A bracket loaded in bending: the layers want to run along the arm.
-- Fillet where a rib or upright meets a plate. That corner is loaded in peel and
-  it is where printed parts snap. 2mm is enough to change the outcome.
-- Anything that takes a screw wants **40%+ infill** locally and 3+ perimeters.
-- A thin flat part printed flat is a hinge. Printed on edge it is a beam.
+- 荷重が層に**沿って**流れる姿勢を選ぶ
+- 曲げを受けるブラケットは、腕に沿って層が走る向き
+- リブや立ち壁の付け根にフィレット。層を引き剥がす力が集中する箇所で、2mm あれば結果が
+  変わる
+- ネジが掛かる部分はインフィル 40% 以上、外周3本以上
+- 薄い平板は、平置きならヒンジ、立てれば梁
 
-## Fastening
+## 締結
 
-In descending order of preference:
+有効な順に。
 
-| method | strength | reusable | notes |
+| 方法 | 強度 | 再利用 | 備考 |
 |---|---|---|---|
-| **heat-set insert** | best | yes | `InsertBoss`. Iron at ~220°C, push straight down, let it cool before touching it |
-| **captive hex nut** | very good | yes | `NutPocket`. Free. The pocket ceiling is a short bridge and prints fine |
-| **self-tap into a plain hole** | fair | no, once | hole ≈ 0.85 × screw dia. Light loads, one assembly cycle |
-| **printed thread** | worthless | no | do not |
+| **熱圧入インサート** | 最強 | 可 | `InsertBoss`。こて約 220℃、垂直に押し込み、冷めるまで触らない |
+| **ナット捕捉** | 強 | 可 | `NutPocket`。追加費用ゼロ。ポケット天井は短いブリッジで問題なし |
+| **素穴タッピング** | 中 | 不可 | 下穴はネジ径 × 0.85 程度。軽負荷・組立1回まで |
+| **印刷ねじ山** | 無 | — | 使わない |
 
-Sink screw heads with `CounterBore` (socket cap) or `CounterSink` (flat head).
-Countersinks are self-supporting when they open upward.
+ネジ頭は `CounterBore`（座ぐり）か `CounterSink`（皿もみ）で沈める。皿もみは上向きに開く
+限り自己支持。
 
-## The elephant foot
+## 象足（elephant foot）
 
-The first layer is squashed and spreads by 0.2–0.4mm. A part that has to sit flat
-against another part, or drop into a pocket, will not — it is fatter at the
-bottom than the model says.
+第1層は押し潰されて 0.2〜0.4mm 広がる。平面に密着すべき部品、ポケットに落とす部品は、
+モデルより裾が太いせいで**そのままでは収まらない**。
 
-Chamfer the bottom edge by `P.elephant_foot` (0.3mm default). It is one line and
-it is the difference between a part that seats and a part that rocks.
+底面の縁に `P.elephant_foot`（既定 0.3mm）の面取り。1行の対策で、密着する部品とがたつく
+部品の分かれ目。
 
-## "It fits" and "it goes in" are different claims
+## 「嵌まる」と「入れられる」は別の話
 
-Two solids that do not overlap are not two parts that assemble.
+重なっていない2つの形状 ≠ 組み立てられる2つの部品。
 
-A lid modelled at exactly the size of its cavity has **zero** overlap. It passes
-every interference check. It comes off the bed at 65.15mm and it does not go in.
+空洞とぴったり同寸のフタは重なりゼロ。干渉チェックを素通りして、造形板からは 65.15mm で
+出てきて、入らない。
 
-And a part can have room where it ends up and still be impossible to get there —
-a bearing behind a retaining lip, a nut dropped into a pocket with no mouth. In
-its final position nothing whatsoever is wrong.
+逆に、最終位置には収まるのに**そこへ到達できない**部品もある。リップの奥のベアリング、
+入口のないポケットのナット。最終位置だけ見れば何も問題がない。
 
-So state the requirement instead of hoping for it:
+だから、期待ではなく宣言。
 
 ```python
 asm.goes_in("lid", "box", direction=(0, 0, 1), clearance=P.gap("slide"))
 ```
 
-The rule of thumb underneath it: **anything that goes into anything needs a gap
-you chose on purpose.** `P.gap("slide")` for a lid or a cover, `P.gap("snug")`
-where it also has to locate. Never zero.
+背後にある経験則: **何かに入るものには、意図して選んだすきまが要る。** フタやカバーは
+`P.gap("slide")`、位置決めを兼ねるなら `P.gap("snug")`。ゼロは選択肢にない。
 
-## Bearings
+## ベアリング
 
-- The pocket takes the **outer** race. `BearingPocket` bores through the lip
-  under it to clear the **inner** race, so the lip can never touch the part that
-  spins.
-- Press only on the outer race when you fit it. A socket, or the flat of a vice.
-  Pressing on the inner race brinells the balls and the bearing is finished —
-  it will feel notchy and it will not get better.
-- Give the bearing a shoulder to seat against (`lip=1.0`), or it wanders in.
-- The seat is 4–7mm of engagement on a small bearing. Deeper is not better; the
-  pocket floor is where the print goes wrong.
+- ポケットが受けるのは**外輪**。`BearingPocket` は座面の穴で**内輪を逃がす**ので、座面が
+  回転側に触れることはない
+- 圧入時に押すのも外輪だけ。ソケットか万力の平面で。内輪を押すと玉に圧痕が付き、
+  そのベアリングは終わり。回転がゴリゴリになり、直らない
+- 突き当ての座面（`lip=1.0`）を残す。ないとベアリングが奥へ逃げる
+- 小径ベアリングの掛かりは 4〜7mm。深くしても良くならない。ポケットの底こそ印刷が乱れる
+  場所
 
-## Before you commit to a long print
+## 長時間の造形に入る前に
 
-1. `asm.validate()` clean of errors.
-2. Warnings understood and accepted on purpose, not ignored.
-3. The profile is calibrated, or you know it is not and the fits are guesses.
-4. For anything with a press fit or a running clearance: **print the one small
-   part first**, or a 10mm test coupon of just the pocket. A four-hour print that
-   ends in a bearing that will not go in is a four-hour print you did twice.
+1. `asm.validate()` がエラーなし
+2. 警告は理解したうえで受け入れている。無視ではなく
+3. プロファイルが較正済み。未較正なら、嵌合が推測であることを自覚している
+4. 圧入や回転部を含むなら、**小さい部品を先に1個**、またはポケット部分だけの 10mm 試験片を
+   刷る。ベアリングが入らないと分かって終わる4時間は、2回繰り返す4時間

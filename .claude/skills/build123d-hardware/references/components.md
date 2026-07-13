@@ -1,113 +1,99 @@
-# Modelling the things you buy
+# 買う部品のモデリング
 
-A mount is a negative of a component. A negative of a guess is scrap.
+ブラケットの形状は、保持する部品の寸法の裏返し。部品が間違っていれば、ブラケットも
+間違う。飛ばされがちな工程で、造形物が嵌まるかどうかは実質ここで決まる。
 
-This is the step people skip, and it is the step that decides whether the print
-fits. Everything downstream — the bracket, the enclosure, the interference check
-— is only as true as the numbers you put in here.
+## 順序は固定
 
-## The order is not negotiable
+1. 実寸法の入手。データシート、ノギス、または**ユーザーに訊く**
+2. `Component` としてモデリング。実体、keepout、取付穴、`source`
+3. 実物と照合できた時点で `verified=True`
+4. **それから**周りのブラケットを設計
 
-1. Get the component's real dimensions. Datasheet, or calipers, or **ask**.
-2. Model it as a `Component`: solids, keepouts, mount holes, `source`.
-3. `verified=True` only once a human has confirmed it against the real part.
-4. *Then* design the bracket around it.
+`Assembly.bought()` は未検証の部品を拒否し、`require()` は未登録の部品を拒否する。
+回避すべき障害ではなく、「正しく設計するための情報が足りない」という設計自身の申告。
 
-`Assembly.bought()` refuses an unverified component, and `require()` refuses an
-unknown one. Those are not obstacles to route around. They are the design saying
-it does not have enough information to be correct.
+## ネジ穴パターンに写らないもの
 
-## What a footprint does not tell you
+部品がネジでぶつかることはまれ。実際にぶつかるのは:
 
-Parts rarely collide on their screws. They collide on:
-
-| what | why it bites |
+| 対象 | 問題 |
 |---|---|
-| **connector insertion** | a USB-C plug needs ~20mm of straight run past the socket. The socket is 3mm tall; the plug is not |
-| **cable bend radius** | a servo cable leaving the case needs 8–10mm before it can turn. A wall at 3mm crushes it |
-| **the underside of a PCB** | solder tails stand 2–3mm proud. Stand the board off, or it sits on its own joints |
-| **swept volume** | a servo horn, a pulley, a fan blade. It is empty *now* |
-| **thermal / swelling** | a LiPo pouch grows. A cell that cannot leave its pocket is a fire |
-| **the tool** | you need to get a screwdriver, and your hand, to every screw |
+| **コネクタの挿抜** | USB-C プラグはソケットの先に 20mm 程度の直線空間が要る。ソケットは 3mm でもプラグは違う |
+| **ケーブルの曲げ** | サーボのケーブルは曲がるまでに 8〜10mm 必要。3mm 先の壁は潰す |
+| **基板の裏面** | はんだの足が 2〜3mm 突き出る。スタンドオフで浮かせないと足の上に座る |
+| **可動部の掃く体積** | サーボホーン、プーリー、ファンの羽根。**今は**空っぽの空間 |
+| **膨張** | LiPo は膨らむ。出られないポケットに入れたセルは火災 |
+| **工具** | すべてのネジに、ドライバーと手が届くこと |
 
-All of these go in as `role="keepout"` volumes, and the interference check treats
-them exactly like solid material — because as far as your bracket is concerned,
-they are.
+これらはすべて `role="keepout"` の体積として登録する。干渉チェックは実体と同じ扱いで
+検査する — ブラケットにとっては実体そのものだから。
 
-## The datum
+## データム（datum）
 
-**z = 0 is the mounting plane.** The origin sits at the centre of the mounting
-hole pattern, in that plane. Mount holes are 2D `(x, y)` at z = 0.
+**z = 0 が取付面。** ブラケットに接する面。原点は取付穴パターンの中心で、取付穴は z = 0 の
+2次元座標 (x, y)。
 
-**+Z is the side the component is on.** Body, connectors, horn.
+**+Z が部品の載る側。** 本体、コネクタ、ホーン。
 
-**−Z is through the bracket.** A motor's pilot boss and output shaft, a servo case
-hanging through a cutout, the solder tails under a PCB. Anything at negative Z is
-telling the bracket it needs a hole there — that is the most useful thing the
-model says, so get the sign right.
+**−Z がブラケットを貫く側。** モーターのパイロットボスと出力軸、開口部から垂れるサーボの
+筐体、基板裏のはんだ面。負の Z にある形状は「ブラケットのここに穴が要る」という情報。
+モデルが伝えることの中で最も有用な部分なので、符号を間違えない。
 
-Do not assume the body is +Z. A NEMA 17 bolts on its face and puts its *shaft*
-through the plate. An SG90 rests on its tabs and puts its *case* through the
-plate. Both are correct.
+本体が常に +Z とは限らない。NEMA 17 は取付面で固定して**軸**を板の向こうへ出す。SG90 は
+タブで載って**筐体**を板の向こうへ垂らす。どちらも正しく、符号に意味があるから表現できる。
 
-## Measuring, when there is no datasheet
+## データシートが無いときの測り方
 
-Calipers, and take each number twice. The ones that matter most, in order:
+ノギスで、各値2回。重要な順に:
 
-1. **Hole spacing, centre to centre.** Not edge to edge. If the holes are the
-   same size, measuring outer-edge to outer-edge and subtracting one diameter is
-   easier and more repeatable than trying to find two centres.
-2. **Hole diameter.** Then model the *printed* hole with
-   `P.hole(dia, "free")` — never the raw number.
-3. **Body envelope at its fattest.** Include the sticker, the shrink wrap, the
-   blob of hot glue. Not the idealised part: the one you own.
-4. **Where the connectors are**, measured from the same origin as the holes, and
-   **how far out you have to pull the plug** to seat it.
-5. **Which way the cable leaves**, and how much room it needs to turn.
+1. **穴の中心間距離。** 縁から縁ではない。同径の穴なら、外縁から外縁を測って直径1つぶん
+   引くほうが、中心を探すより再現性が高い
+2. **穴の直径。** 印刷する側の穴は `P.hole(dia, "free")` で導出。生の値を書かない
+3. **本体の最大外形。** シール、収縮チューブ、接着剤の盛りも含める。理想形ではなく、
+   手元の個体
+4. **コネクタの位置**（穴と同じ原点から）と、**プラグを挿すのに必要な引き代**
+5. **ケーブルの出る方向**と、曲げに必要な空間
 
-Then `source="measured with calipers, <date>"`, `verified=True`, and say in
-`notes` what you were unsure about.
+測ったら `source="ノギスで実測、<日付>"`、`verified=True`、不確かだった点は `notes` に残す。
 
-## Asking the user
+## ユーザーへの訊き方
 
-When a component is missing or unverified, **stop and ask**. Do not estimate from
-a photo, do not average forum posts, do not leave a placeholder. There is no
-"refine it later" — there is a printed bracket that does not fit and an evening
-gone.
+部品が未登録・未検証なら、**手を止めて訊く**。写真から読まない、ネットの値を平均しない、
+仮の値で進めない。「あとで直す」機会は来ない。来るのは嵌まらない造形物。
 
-`hwkit.components.CHECKLIST` holds the per-category list to ask for. Quote it:
+`hwkit.components.CHECKLIST` に部品種別ごとの質問項目がある。引用して:
 
-> To cut this bracket I need the servo's real dimensions — SG90 clones vary
-> between batches, and the mount is a negative of these numbers. Could you
-> measure yours or send the datasheet?
+> このブラケットの設計にはサーボの実寸法が必要です。SG90 は個体差が大きく、
+> マウントの形状はこの数値の裏返しになります。お手元のものを測っていただくか、
+> データシートをいただけますか。
 >
-> - body length x width x height (the case, not the tabs)
-> - hole spacing between the tab hole centres, and the hole diameter
-> - output shaft: how far from the centre of the hole pattern, along which axis
-> - how far the horn sticks out past the case, and its swept diameter
-> - which face the cable leaves from, and how much room the bend needs
+> - 本体の長さ × 幅 × 高さ（タブではなく筐体）
+> - タブのネジ穴の中心間距離と、穴の直径
+> - 出力軸の位置（ネジ穴パターン中心からのずれと方向）
+> - ホーンの突出量と、回転が掃く直径
+> - ケーブルが出る面と、曲げに必要な空間
 
-Ask for all of it at once. Asking for one number, designing, then discovering you
-need another is worse for the user than one complete question.
+**全項目を一度に訊く。** 1つ訊いて設計に戻り、また足りないと気づく — この繰り返しが
+ユーザーには一番の負担。
 
-## What ships verified, and what does not
+## 検証済みと未検証
 
-| component | verified | why |
+| 部品 | verified | 理由 |
 |---|---|---|
-| `NEMA17` | yes | NEMA frame standard: 42.3mm, 31mm bolt pattern, 22mm boss, 5mm shaft |
-| `RPI5` | yes | published mechanical drawing: 85 x 56, 58 x 49 pattern, 3.5mm from the edges |
-| `SG90` | **no** | clones vary; tab spacing and shaft offset move between batches |
-| `CELL_18650` | **no** | protected cells run 69–70mm, bare cells 65mm, button tops add more |
+| `NEMA17` | 済 | NEMA フレーム規格。42.3mm 角、31mm ボルトパターン、φ22 ボス、φ5 軸 |
+| `RPI5` | 済 | 公式機械図面。85 × 56、穴パターン 58 × 49、縁から 3.5mm |
+| `SG90` | **未** | クローンの個体差。タブ間隔も軸位置もロットで動く |
+| `CELL_18650` | **未** | 素セル 65mm、保護回路付き 69〜70mm、ボタントップでさらに +1mm |
 
-The unverified two are there to start a conversation with the user, not to
-license a print. The code will not let them through.
+未検証の2つはユーザーへの質問の出発点。コードが印刷まで通さない。
 
-## A worked example
+## 実例
 
-`examples/motor_mount.py`. The motor is modelled first — body, pilot boss, shaft,
-and the room the cable needs behind it. Only then is a bracket cut around it, and
-the interference check is the proof the bracket did not land on any of it.
+`examples/motor_mount.py`。モーターを先にモデリングする — 本体、パイロットボス、軸、
+背面のケーブル空間まで。その後で周りのブラケットを削り、どこにも乗り上げていないことを
+干渉チェックが証明する。
 
-Delete the cable keepout from `NEMA17` and re-run: the design still passes, and
-the motor still does not fit. **You cannot check what you did not model.** That is
-the whole argument for doing this step first.
+試しに `NEMA17` からケーブルの keepout を消して再実行すると、検証は全部通る。そして
+モーターは入らない。**モデリングしていないものは検査できない。** この工程を最初に置く
+理由のすべて。
