@@ -70,6 +70,13 @@
 | 法線 | normal |
 | データム | datum |
 | 較正 | calibration |
+| 面一 | flush |
+| エンベロープ | envelope |
+| パイロットボス | pilot boss |
+| インフィル | infill |
+| スタンドオフ | standoff |
+| ティアドロップ | teardrop |
+| 回転軌跡 | swept volume |
 
 定訳が無い語、英語のほうが通じる語は英語のまま。併記しない（keepout、footprint）。
 
