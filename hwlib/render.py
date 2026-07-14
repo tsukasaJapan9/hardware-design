@@ -93,9 +93,16 @@ def render(
 def show(parts: Part | dict[str, Part]) -> None:
     """ocp_vscode のビューアに送り、人間が確認できるようにする。
 
-    VSCode の OCP CAD Viewer を開いておく必要がある。
+    VSCode の OCP CAD Viewer、または `python -m ocp_vscode --port 3939` で起動した
+    スタンドアロンのビューア（ブラウザで http://127.0.0.1:3939/viewer）に送る。
+
+    カメラは毎回リセットする。前回の視点を保持すると、形状が画面外に出て
+    「何も表示されない」ように見えることがあるため。
     """
+    from ocp_vscode import Camera, set_defaults
     from ocp_vscode import show as ocp_show
+
+    set_defaults(reset_camera=Camera.RESET)
 
     if isinstance(parts, Part):
         ocp_show(parts)
