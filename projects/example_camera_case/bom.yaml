@@ -1,0 +1,81 @@
+project: example_camera_case
+
+# 寸法の出所は confidence で示す。
+#   datasheet     — メーカーの機械図面・データシート（source に URL 必須）
+#   measured      — ユーザがノギスで実測した
+#   user_provided — ユーザが値を指定した
+# 推測値は書かない。確定できない場合はユーザに実測を依頼する。
+
+components:
+  - id: pi_zero
+    name: Raspberry Pi Zero 2 W
+    category: board
+    size: [65.0, 30.0, 5.0]
+    mount_holes: [[3.5, 3.5], [61.5, 3.5], [3.5, 26.5], [61.5, 26.5]]
+    hole_dia: 2.75
+    connectors:
+      - name: micro_usb_power
+        pos: [54.0, 0.0, 2.5]
+        size: [8.0, 3.0]
+        face: "-y"
+        depth: 15.0
+    clearance: 2.0
+    retention: M2.6 タッピングネジ x4（ケース底のボスに直締め）
+    confidence: datasheet
+    source: https://datasheets.raspberrypi.com/rpizero2/raspberry-pi-zero-2-w-mechanical-drawing.pdf
+    note: 基板 65 x 30 mm、ネジ穴ピッチ 58 x 23 mm、穴径 2.75 mm。高さ 5.0 は実装部品込みの概算
+
+  - id: camera
+    name: Raspberry Pi Camera Module v2
+    category: sensor
+    size: [25.0, 24.0, 9.0]
+    clearance: 1.0
+    retention: 台座に載せ、位置決めリブで横方向を拘束し、蓋で上から押さえる
+    confidence: datasheet
+    source: https://www.raspberrypi.com/documentation/accessories/camera.html
+    note: |
+      外形 25 x 24 mm、レンズ込み高さ 9 mm は確認済み。
+      取付穴の位置は一次情報源で確認できなかったため mount_holes を持たせていない。
+      ネジ止めする設計に変える場合は実測が必要。現状は蓋のリブで押さえる前提。
+
+  - id: battery
+    name: LiPo バッテリー 603448 相当
+    category: power
+    size: [50.0, 34.0, 5.0]
+    clearance: 2.0
+    retention: 床に両面テープで固定する
+    confidence: user_provided
+    note: |
+      サンプル用の想定値。実際に使うセルの寸法は個体差があるため実測すること。
+      リチウムポリマーは経年で膨らむため、クリアランスを 2 mm 確保している。
+
+  - id: usb_cable
+    name: micro USB ケーブル（電源）
+    category: wiring
+    size: [12.0, 15.0, 8.0]
+    clearance: 0.0
+    confidence: user_provided
+    geometric: false
+    note: コネクタの挿抜空間は pi_zero の connectors で確保している
+
+  - id: screws_lid
+    name: タッピングネジ M3 x 10（蓋固定、4 本）
+    category: fastener
+    size: [3.0, 3.0, 10.0]
+    confidence: user_provided
+    geometric: false
+    note: 樹脂直締め。ボスの下穴 φ2.4、ねじ込み深さ 7.5 mm
+
+  - id: screws_board
+    name: タッピングネジ M2.6 x 8（基板固定、4 本）
+    category: fastener
+    size: [2.6, 2.6, 8.0]
+    confidence: user_provided
+    geometric: false
+    note: 樹脂直締め。ボスの下穴 φ2.1、ねじ込み深さ 6.4 mm
+
+# 不要と判断したカテゴリは、その理由を残す。黙って飛ばさない。
+excluded:
+  actuator: 可動部を持たない
+  display_ui: 表示・操作系はなし（電源は USB 抜き差しで代用）
+  thermal: Pi Zero 2 W の発熱は小さく、通気口とヒートシンクは設けない
