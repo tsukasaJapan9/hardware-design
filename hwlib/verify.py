@@ -78,6 +78,27 @@ def assert_all_parts_placed(bom, placed: dict[str, Part]) -> None:
     )
 
 
+def assert_no_provisional(*, bom=None, dims: dict[str, str] | None = None, context: str = "") -> None:
+    """暫定寸法（実測待ち）が残っていないことを確認する。印刷・発注の前のゲート。
+
+    骨格設計は暫定値のまま進めてよいが、実際に印刷・発注する前にこの検査を通す。
+    暫定値が残っていれば、何をどう測るべきかを列挙して失敗する。
+
+    bom  — provisional な部品を持つ BOM
+    dims — モデル固有の暫定パラメータ {パラメータ名: 測り方}
+    """
+    pending: list[str] = []
+    if bom is not None:
+        pending += [f"{c.id}: {c.note or '寸法を実測して確定すること'}" for c in bom.provisional]
+    if dims:
+        pending += [f"{name}: {how}" for name, how in dims.items()]
+
+    assert not pending, (
+        f"{context + ': ' if context else ''}実測が未確定の暫定寸法が残っています"
+        "（印刷・発注の前に必ず確定すること）:\n" + "\n".join(f"  - {p}" for p in pending)
+    )
+
+
 # --------------------------------------------------------------------------
 # B. 外装に収まり、組み立てられるか
 # --------------------------------------------------------------------------

@@ -179,6 +179,21 @@ def test_assert_bbox_detects_wrong_size():
 
 
 # --------------------------------------------------------------------------
+# 製造ゲート（暫定寸法の検出）
+# --------------------------------------------------------------------------
+def test_assert_no_provisional_passes_when_empty():
+    verify.assert_no_provisional(dims={})
+
+
+def test_assert_no_provisional_detects_pending_dims():
+    """暫定寸法が残っていれば、何を測るべきか列挙して失敗すること。"""
+    with pytest.raises(AssertionError, match="horn_pcd"):
+        verify.assert_no_provisional(
+            dims={"horn_pcd": "対向 M2 穴の中心間距離を測る"}, context="変換ハブ"
+        )
+
+
+# --------------------------------------------------------------------------
 # features
 # --------------------------------------------------------------------------
 def test_tapping_boss_has_pilot_hole():
