@@ -31,13 +31,10 @@ OUT = HERE / "out"
 
 # 実測が未確定の暫定寸法。{パラメータ名: 測り方}。印刷前に必ず実測して Params を更新し、
 # ここから消す。残っている限り verify.assert_no_provisional が失敗する。
-# XL330 側（horn_pcd 等）は公式図面 X330 で確定したため provisional から外した。
-# 残るはタミヤホイール側（CAD なし、実測が必要）。
+# XL330 側は公式図面 X330、タミヤ側は 70145 組立説明図で確定した。
+# 中央ボアは使わず3穴＋外径スピゴットで組む方針のため、ボア径・座ぐりは設計に不要。
+# 残るのはビスがホイール壁を通る厚み（図面に数値なし）のみ。
 PROVISIONAL: dict[str, str] = {
-    "wheel_recess_dia": "ホイール内側のハブ座ぐりの直径（ここにハブ外径が嵌る）",
-    "wheel_recess_depth": "ハブ座ぐりの深さ",
-    "wheel_bolt_pcd": "ホイールの 3 本ビス穴の PCD（隣り合う2穴の中心間から算出）",
-    "wheel_bore_dia": "ホイール中央ボアの直径（M2 ネジ頭がここに収まる必要がある）",
     "wheel_boss_wall": "ホイールのビス穴部の壁厚（3x8 ビスがこれを通ってハブへねじ込む）",
 }
 
@@ -49,11 +46,12 @@ class Params:
     # --- XL330 側: 公式図面 X330 で確定 ---
     horn_pcd: float = 12.0       # ホーン穴 P.C.D φ12（4xφ1.6, 90度等配）
 
+    # --- タミヤ側: 70145 組立説明図で確定 ---
+    wheel_bolt_pcd: float = 20.0  # 3穴 PCD（図面「10mm」= 軸中心から穴中心 x2）
+    # ハブ外径が嵌るリム内側の基準径。リム外径 42mm を上限に、その内側に収める
+    rim_od: float = 42.0
+
     # --- タミヤ側: 暫定（実測待ち） ---
-    wheel_recess_dia: float = 26.0
-    wheel_recess_depth: float = 3.0
-    wheel_bolt_pcd: float = 20.0
-    wheel_bore_dia: float = 10.0
     wheel_boss_wall: float = 2.0
 
     # --- 確定（設計上の選択・はめ合い） ---
@@ -62,14 +60,19 @@ class Params:
     wheel_screw: str = "M3"      # 3x8 タッピングビス（呼び径3）
     wheel_screw_len: float = 8.0
     spigot_fit: float = 0.10     # 外径スピゴットのすきま（片側）
+    adapter_margin: float = 6.0  # ハブ外径をリム外径よりどれだけ小さくするか
     body_thickness: float = 8.0  # ハブ本体の厚み
     cb_depth: float = 2.0        # M2 ネジ頭の座ぐり深さ
     tap_floor: float = 1.5       # 下穴の底に残す肉厚
 
     @property
     def adapter_od(self) -> float:
-        """ハブ外径。ホイール座ぐりにスピゴット嵌合させて芯出しする。"""
-        return self.wheel_recess_dia - 2 * self.spigot_fit
+        """ハブ外径。ホイールのリム内に収め、3穴（PCD20）を十分覆う径にする。
+
+        リム外径 42mm より adapter_margin ぶん小さく取り、リム内側に収める。
+        3穴 PCD20 + ビス頭ぶんは覆う必要がある。
+        """
+        return self.rim_od - self.adapter_margin
 
     @property
     def wheel_tap_depth(self) -> float:
@@ -141,16 +144,9 @@ def servo_mock() -> Part:
 
 
 def wheel_mock() -> Part:
-    """タミヤホイールの外形。内側面をハブ上面に合わせて置く。"""
-    dia, _, width = BOM["wheel"].size  # 58 x 58 x 16
-    wheel = Pos(0, 0, P.body_thickness) * Cylinder(
-        dia / 2, width, align=(Align.CENTER, Align.CENTER, Align.MIN)
-    )
-    # 中央ボア（M2 頭の逃げ確認用）
-    wheel -= Pos(0, 0, P.body_thickness) * Cylinder(
-        P.wheel_bore_dia / 2, width, align=(Align.CENTER, Align.CENTER, Align.MIN)
-    )
-    return wheel
+    """タミヤホイールの実形状。内側面（ハブ取付面）をハブ上面 Z=body に合わせる。"""
+    from hwlib.parts import tamiya_wheel
+    return tamiya_wheel.body(inner_face_z=P.body_thickness)
 
 
 def build_all() -> dict[str, Part]:
