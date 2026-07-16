@@ -64,9 +64,10 @@ CATALOG: dict[str, Component] = {
         confidence="datasheet",
         source="https://emanual.robotis.com/docs/en/dxl/x/xl330-m288/",
         note=(
-            "M077(車輪)・M288(股膝)共通ケース、18g/個。ケースの M2 セルフタッピング穴と "
-            "出力ホーンの M2 パターンは公式 DWG/STEP を正とする（#drawings 節）。"
-            "出力軸はケース中心からオフセット（W方向中心・H方向上端寄り）"
+            "M077(車輪)・M288(股膝)共通ケース、18g/個。公式図面 X330 より: "
+            "出力軸は W方向中央・H方向は上端から 9.5mm（箱中央ではない）。"
+            "ホーン穴 = 4xφ1.6・P.C.D φ12・M2タッピング。"
+            "実形状モデルは hwlib.parts.xl330 を使う（箱近似ではなく軸原点で扱う）"
         ),
     ),
     "tamiya_narrow_tire_70145": Component(

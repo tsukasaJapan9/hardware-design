@@ -31,10 +31,9 @@ OUT = HERE / "out"
 
 # 実測が未確定の暫定寸法。{パラメータ名: 測り方}。印刷前に必ず実測して Params を更新し、
 # ここから消す。残っている限り verify.assert_no_provisional が失敗する。
+# XL330 側（horn_pcd 等）は公式図面 X330 で確定したため provisional から外した。
+# 残るはタミヤホイール側（CAD なし、実測が必要）。
 PROVISIONAL: dict[str, str] = {
-    "horn_pcd": "XL330 出力ホーンの対向する M2 穴の中心間距離（＝PCD）",
-    "horn_boss_dia": "ホーン中央の突起（ボス/スプライン）の外径",
-    "horn_boss_h": "ホーン中央ボスがホーン上面から出ている高さ",
     "wheel_recess_dia": "ホイール内側のハブ座ぐりの直径（ここにハブ外径が嵌る）",
     "wheel_recess_depth": "ハブ座ぐりの深さ",
     "wheel_bolt_pcd": "ホイールの 3 本ビス穴の PCD（隣り合う2穴の中心間から算出）",
@@ -47,10 +46,10 @@ PROVISIONAL: dict[str, str] = {
 class Params:
     """設計パラメータ。暫定値は PROVISIONAL に対応する項目を実測後に更新する。"""
 
-    # --- 暫定（実測待ち）。当面は妥当な仮値 ---
-    horn_pcd: float = 8.0
-    horn_boss_dia: float = 8.0
-    horn_boss_h: float = 1.5
+    # --- XL330 側: 公式図面 X330 で確定 ---
+    horn_pcd: float = 12.0       # ホーン穴 P.C.D φ12（4xφ1.6, 90度等配）
+
+    # --- タミヤ側: 暫定（実測待ち） ---
     wheel_recess_dia: float = 26.0
     wheel_recess_depth: float = 3.0
     wheel_bolt_pcd: float = 20.0
@@ -58,10 +57,10 @@ class Params:
     wheel_boss_wall: float = 2.0
 
     # --- 確定（設計上の選択・はめ合い） ---
-    horn_screw: str = "M2"       # ホーン固定ネジ
+    horn_screw: str = "M2"       # ホーン固定ネジ（M2 タッピング、深さ最大3.0）
+    horn_engage: float = 3.0     # ホーンへのねじ込み深さ（図面 DP3.0 Max）
     wheel_screw: str = "M3"      # 3x8 タッピングビス（呼び径3）
     wheel_screw_len: float = 8.0
-    pilot_fit: float = 0.10      # 凹パイロットのすきま（片側）
     spigot_fit: float = 0.10     # 外径スピゴットのすきま（片側）
     body_thickness: float = 8.0  # ハブ本体の厚み
     cb_depth: float = 2.0        # M2 ネジ頭の座ぐり深さ
@@ -103,15 +102,13 @@ def wheel_screw_positions() -> list[tuple[float, float]]:
 
 
 def build_hub() -> Part:
-    """変換ハブ本体（印刷対象）。"""
+    """変換ハブ本体（印刷対象）。原点＝回転軸。底面 Z=0 が XL330 ホーン頂に当たる。
+
+    芯出しは「回転軸を原点に揃える」ことと、ホイール座ぐりへの外径スピゴット嵌合で行う。
+    XL330 側はホーン穴 P.C.D φ12（図面確定）に M2 で締結する。
+    """
     t = P.body_thickness
     hub = Cylinder(P.adapter_od / 2, t, align=(Align.CENTER, Align.CENTER, Align.MIN))
-
-    # 底面: ホーン中央ボスに嵌る凹パイロット（芯出し）
-    hub -= Cylinder(
-        (P.horn_boss_dia + 2 * P.pilot_fit) / 2, P.horn_boss_h,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
 
     m2 = SCREWS[P.horn_screw]
     for x, y in horn_screw_positions():
@@ -138,10 +135,9 @@ def build_hub() -> Part:
 
 # --- 相手部品のモック（干渉・目視確認用。印刷対象ではない） ---
 def servo_mock() -> Part:
-    """XL330 の外形。回転軸を Z に合わせ、ホーン当たり面（Z=0）の下に置く。"""
-    w, h, d = BOM["xl330"].size  # 20 x 34 x 26
-    # 出力軸のケース内オフセットは実測待ちのため、軸を中心とした概略配置
-    return Pos(0, 0, -d) * Box(w, h, d, align=(Align.CENTER, Align.CENTER, Align.MIN))
+    """XL330 の実形状。原点＝出力軸、ホーン頂が Z=0。図面 datum を反映済み。"""
+    from hwlib.parts import xl330
+    return xl330.body()
 
 
 def wheel_mock() -> Part:
