@@ -60,8 +60,10 @@ class XL330:
         ]
 
 
-HORN_BOSS_DIA = HORN_PCD + 4.0   # ホーン外径の概略（φ12 穴円 + 縁）。細部は provisional
-HORN_BOSS_H = 2.0                 # ホーンがケース前面から出る高さ（概略）
+# 未確定（provisional・実測待ち）
+# 変換ハブは、このホーン円板の外周に被せるスカートで芯出しする。嵌合の要なので実測する。
+HORN_BOSS_DIA = HORN_PCD + 4.0   # ホーン円板の外径。φ12 穴円 + 縁 の仮値（IDLER 側は図面 φ16）
+HORN_BOSS_H = 2.0                 # ホーン円板がケース前面から出る高さ（仮値）
 
 
 def body(*, with_horn_holes: bool = True) -> Part:

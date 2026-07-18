@@ -25,13 +25,18 @@ components:
     note: 外径58/幅16は確定。3点留めPCD・中央ボア径は実測待ち（PROVISIONAL 参照）
 
   - id: screws_horn
-    name: M2 ネジ x4（ホーン固定・付属品）
+    name: M2x8 なべ小ねじ x4（ホーン固定・別途調達）
     category: fastener
-    size: [2.0, 2.0, 6.0]
+    size: [2.0, 2.0, 8.0]
     confidence: datasheet
     geometric: false
     source: https://emanual.robotis.com/docs/en/dxl/x/xl330-m288/
-    note: XL330 ホーン付属の M2x6
+    note: >
+      XL330 付属の M2x6 では届かない。ハブ全高 7.25mm を貫通したうえでホーンに
+      DP3.0 ねじ込む必要があるため、座ぐり 2.25mm で頭を沈めて M2x8 を使う
+      （model.Params.cb_depth）。DP3.0 Max を超えるとサーボ内部を破損するので
+      これ以上長いネジは不可。ハブ全高はウェブ板厚の実測で変わるため、
+      実測後にネジ長を再確認すること。
 
   - id: screws_wheel
     name: 3x8mm タッピングビス x3（ホイール固定・タミヤ付属）
