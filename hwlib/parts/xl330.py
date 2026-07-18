@@ -1,6 +1,7 @@
 """DYNAMIXEL XL330-M077-T / M288-T の実形状モデル。
 
 出所: ROBOTIS 公式図面 X330（28-May-20, [FOR REFERENCE ONLY]）と e-manual。
+図面の現物: datasheets/xl330/XL_XC-330.pdf（読み取れる寸法は datasheets/README.md）
 M077 と M288 はケース・ホーン・取付穴が共通。
 
 座標系（このモデルの約束）:
