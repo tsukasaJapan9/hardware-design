@@ -50,6 +50,45 @@ CATALOG: dict[str, Component] = {
             "ネジ止めする場合はノギスで実測すること"
         ),
     ),
+    "dynamixel_xl330": Component(
+        id="dynamixel_xl330",
+        name="ROBOTIS DYNAMIXEL XL330-M077-T / M288-T",
+        category="actuator",
+        # 公式スペックのケース外形。M077 と M288 は同一ケース
+        size=(20.0, 34.0, 26.0),  # W x H x D（e-manual の Specifications）
+        # ケース側面・背面の M2 セルフタッピング穴。出力ホーンの M2 パターンとは別。
+        # 穴座標は公式図面を正とするため、ここには登録しない（本表の外形値のみで設計しない）
+        mount_holes=[],
+        hole_dia=2.0,
+        clearance=1.0,
+        confidence="datasheet",
+        source="https://emanual.robotis.com/docs/en/dxl/x/xl330-m288/",
+        note=(
+            "M077(車輪)・M288(股膝)共通ケース、18g/個。公式図面 X330 より: "
+            "出力軸は W方向中央・H方向は上端から 9.5mm（箱中央ではない）。"
+            "ホーン穴 = 4xφ1.6・P.C.D φ12・M2タッピング。"
+            "実形状モデルは hwlib.parts.xl330 を使う（箱近似ではなく軸原点で扱う）"
+        ),
+    ),
+    "tamiya_narrow_tire_70145": Component(
+        id="tamiya_narrow_tire_70145",
+        name="タミヤ No.145 ナロータイヤセット (Item 70145)",
+        category="wiring",  # 車輪。カテゴリは設計側の BOM で上書きする想定
+        # 組立説明図の寸法図より: タイヤ外径 58 x 幅 16 mm
+        size=(58.0, 58.0, 16.0),
+        # ホイールはハブを 3x8mm タッピングビス3本で三角形に留める。
+        # 3点 PCD・中央ボア径は数値が図に無く、実測が必要なため登録しない
+        mount_holes=[],
+        hole_dia=0.0,
+        clearance=1.0,
+        confidence="datasheet",
+        source="https://www.tamiya.com/japan/products/70145/index.html",
+        note=(
+            "ソリッドゴムタイヤ+樹脂ホイール2本組、~15g/輪(要実測)。"
+            "リム部 42mm、中央部まわり 10mm。ハブB1(六角軸/圧入)・B2(丸軸/3mmナット)付属。"
+            "3点留めビス穴の PCD と中央ボア径は図に数値が無いため実測すること"
+        ),
+    ),
 }
 
 

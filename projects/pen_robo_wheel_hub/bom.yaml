@@ -1,0 +1,51 @@
+project: pen_robo_wheel_hub
+
+# 変換ハブ単体の設計。相手部品（サーボ・ホイール）は干渉確認用に置くが、
+# 印刷するのはハブ本体のみ。相手部品の嵌合寸法は provisional（実測待ち）。
+
+components:
+  - id: xl330
+    name: DYNAMIXEL XL330-M077-T（車輪サーボ）
+    category: actuator
+    size: [20.0, 34.0, 26.0]
+    clearance: 1.0
+    retention: ロボット脚側に固定（この部品では対象外、干渉確認用）
+    confidence: datasheet
+    source: https://emanual.robotis.com/docs/en/dxl/x/xl330-m288/
+    note: ケース外形は確定。出力ホーンの M2x4 パターンは公式図面/実測で確定する
+
+  - id: wheel
+    name: タミヤ No.145 ナロータイヤ（58mm）
+    category: actuator
+    size: [58.0, 58.0, 16.0]
+    clearance: 1.0
+    retention: 変換ハブに 3x8mm タッピングビス3本で固定
+    confidence: datasheet
+    source: https://www.tamiya.com/japan/products/70145/index.html
+    note: 外径58/幅16は確定。3点留めPCD・中央ボア径は実測待ち（PROVISIONAL 参照）
+
+  - id: screws_horn
+    name: M2 ネジ x4（ホーン固定・付属品）
+    category: fastener
+    size: [2.0, 2.0, 6.0]
+    confidence: datasheet
+    geometric: false
+    source: https://emanual.robotis.com/docs/en/dxl/x/xl330-m288/
+    note: XL330 ホーン付属の M2x6
+
+  - id: screws_wheel
+    name: 3x8mm タッピングビス x3（ホイール固定・タミヤ付属）
+    category: fastener
+    size: [3.0, 3.0, 8.0]
+    confidence: datasheet
+    geometric: false
+    source: https://www.tamiya.com/japan/products/70145/index.html
+    note: タミヤ 70145 付属
+
+excluded:
+  board: 電子基板は載らない
+  sensor: センサなし
+  power: 電源なし
+  wiring: 配線は通らない
+  display_ui: 表示・操作なし
+  thermal: 発熱源なし

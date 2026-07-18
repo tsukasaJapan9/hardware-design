@@ -1,0 +1,182 @@
+"""XL330 → タミヤホイール 変換ハブ。
+
+pen_robo の駆動輪を XL330-M077 の出力ホーンに結合する。仕様書 §6.2。
+
+方式: 付属ハブを使わず、変換ハブをホイールの 3x8mm タッピング穴（3点）に直接ボルト留め。
+同軸度を確保するため二重に芯出しする。
+  - XL330 側: ホーン中央ボスに嵌める凹パイロット（底面）で芯出し、M2x4 でボルト留め
+  - ホイール側: ハブ座ぐりに嵌る外径スピゴット（OD）で芯出し、3x8mm ビス3本で留め
+
+座標系: 回転軸 = Z。原点はハブ底面（ホーン当たり面）の中心。Z+ がホイール側。
+
+暫定寸法（provisional）は PROVISIONAL に列挙。印刷前に verify.assert_no_provisional で確定を強制する。
+"""
+
+from __future__ import annotations
+
+import math
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+
+from build123d import Align, Box, Cylinder, Part, Pos
+
+from hwlib.bom import load_bom
+from hwlib.features import SCREWS
+
+HERE = Path(__file__).parent
+BOM = load_bom(HERE / "bom.yaml")
+OUT = HERE / "out"
+
+
+# 実測が未確定の暫定寸法。{パラメータ名: 測り方}。印刷前に必ず実測して Params を更新し、
+# ここから消す。残っている限り verify.assert_no_provisional が失敗する。
+# XL330 側は公式図面 X330、タミヤ側は 70145 組立説明図で確定した。
+# 中央ボアは使わず3穴＋外径スピゴットで組む方針のため、ボア径・座ぐりは設計に不要。
+# 残るのはビスがホイール壁を通る厚み（図面に数値なし）のみ。
+PROVISIONAL: dict[str, str] = {
+    "wheel_boss_wall": "ホイールのビス穴部の壁厚（3x8 ビスがこれを通ってハブへねじ込む）",
+}
+
+
+@dataclass(frozen=True)
+class Params:
+    """設計パラメータ。暫定値は PROVISIONAL に対応する項目を実測後に更新する。"""
+
+    # --- XL330 側: 公式図面 X330 で確定 ---
+    horn_pcd: float = 12.0       # ホーン穴 P.C.D φ12（4xφ1.6, 90度等配）
+
+    # --- タミヤ側: 70145 組立説明図で確定 ---
+    wheel_bolt_pcd: float = 20.0  # 3穴 PCD（図面「10mm」= 軸中心から穴中心 x2）
+    # ハブ外径が嵌るリム内側の基準径。リム外径 42mm を上限に、その内側に収める
+    rim_od: float = 42.0
+
+    # --- タミヤ側: 暫定（実測待ち） ---
+    wheel_boss_wall: float = 2.0
+
+    # --- 確定（設計上の選択・はめ合い） ---
+    horn_screw: str = "M2"       # ホーン固定ネジ（M2 タッピング、深さ最大3.0）
+    horn_engage: float = 3.0     # ホーンへのねじ込み深さ（図面 DP3.0 Max）
+    wheel_screw: str = "M3"      # 3x8 タッピングビス（呼び径3）
+    wheel_screw_len: float = 8.0
+    spigot_fit: float = 0.10     # 外径スピゴットのすきま（片側）
+    adapter_margin: float = 6.0  # ハブ外径をリム外径よりどれだけ小さくするか
+    body_thickness: float = 8.0  # ハブ本体の厚み
+    cb_depth: float = 2.0        # M2 ネジ頭の座ぐり深さ
+    tap_floor: float = 1.5       # 下穴の底に残す肉厚
+
+    @property
+    def adapter_od(self) -> float:
+        """ハブ外径。ホイールのリム内に収め、3穴（PCD20）を十分覆う径にする。
+
+        リム外径 42mm より adapter_margin ぶん小さく取り、リム内側に収める。
+        3穴 PCD20 + ビス頭ぶんは覆う必要がある。
+        """
+        return self.rim_od - self.adapter_margin
+
+    @property
+    def wheel_tap_depth(self) -> float:
+        """ホイール固定ビスがハブにねじ込まれる深さ。
+
+        3x8 ビスはホイール壁（wheel_boss_wall）を通ってからハブに入るため、
+        ねじ込み深さ = ビス長 - 壁厚。本体はこれ + 底肉を収める厚みが要る。
+        """
+        return self.wheel_screw_len - self.wheel_boss_wall
+
+
+P = Params()
+
+
+def _polar(radius: float, count: int, start_deg: float = 0.0) -> list[tuple[float, float]]:
+    """半径 radius 上に count 個、等間隔に並ぶ (x, y)。"""
+    return [
+        (radius * math.cos(math.radians(start_deg + 360 * i / count)),
+         radius * math.sin(math.radians(start_deg + 360 * i / count)))
+        for i in range(count)
+    ]
+
+
+def horn_screw_positions() -> list[tuple[float, float]]:
+    return _polar(P.horn_pcd / 2, 4, start_deg=45)
+
+
+def wheel_screw_positions() -> list[tuple[float, float]]:
+    return _polar(P.wheel_bolt_pcd / 2, 3, start_deg=90)
+
+
+def build_hub() -> Part:
+    """変換ハブ本体（印刷対象）。原点＝回転軸。底面 Z=0 が XL330 ホーン頂に当たる。
+
+    芯出しは「回転軸を原点に揃える」ことと、ホイール座ぐりへの外径スピゴット嵌合で行う。
+    XL330 側はホーン穴 P.C.D φ12（図面確定）に M2 で締結する。
+    """
+    t = P.body_thickness
+    hub = Cylinder(P.adapter_od / 2, t, align=(Align.CENTER, Align.CENTER, Align.MIN))
+
+    m2 = SCREWS[P.horn_screw]
+    for x, y in horn_screw_positions():
+        # M2 バカ穴（貫通）
+        hub -= Pos(x, y, 0) * Cylinder(
+            m2.clearance_dia / 2, t, align=(Align.CENTER, Align.CENTER, Align.MIN)
+        )
+        # ネジ頭の座ぐり（上面から）。頭がホイール側に出ないようにする
+        hub -= Pos(x, y, t - P.cb_depth) * Cylinder(
+            (m2.head_dia + 0.4) / 2, P.cb_depth + 0.01,
+            align=(Align.CENTER, Align.CENTER, Align.MIN),
+        )
+
+    # ホイール固定用: 3x8 タッピングビスの下穴（上面から本体へ）
+    m3 = SCREWS[P.wheel_screw]
+    tap_depth = P.wheel_tap_depth
+    for x, y in wheel_screw_positions():
+        hub -= Pos(x, y, t - tap_depth) * Cylinder(
+            m3.pilot_dia / 2, tap_depth + 0.01,
+            align=(Align.CENTER, Align.CENTER, Align.MIN),
+        )
+    return hub
+
+
+# --- 相手部品のモック（干渉・目視確認用。印刷対象ではない） ---
+def servo_mock() -> Part:
+    """XL330 の実形状。原点＝出力軸、ホーン頂が Z=0。図面 datum を反映済み。"""
+    from hwlib.parts import xl330
+    return xl330.body()
+
+
+def wheel_mock() -> Part:
+    """タミヤホイールの実形状。内側面（ハブ取付面）をハブ上面 Z=body に合わせる。"""
+    from hwlib.parts import tamiya_wheel
+    return tamiya_wheel.body(inner_face_z=P.body_thickness)
+
+
+def build_all() -> dict[str, Part]:
+    return {"hub": build_hub(), "servo": servo_mock(), "wheel": wheel_mock()}
+
+
+def export(out_dir: Path = OUT) -> None:
+    from build123d import export_step, export_stl
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    hub = build_hub()
+    export_stl(hub, str(out_dir / "hub.stl"), tolerance=0.02)
+    export_step(hub, str(out_dir / "hub.step"))
+    print(f"出力しました: {out_dir}")
+
+
+def main() -> None:
+    if "--show" in sys.argv:
+        from hwlib.render import show
+        show(build_all())
+    elif "--render" in sys.argv:
+        from hwlib.render import render
+        path = render(build_all(), OUT / "assembly.png", opacity={"servo": 0.3, "wheel": 0.3})
+        print(f"レンダリングしました: {path}")
+    elif "--export" in sys.argv:
+        export()
+    else:
+        print(__doc__)
+        print("使い方: python -m projects.pen_robo_wheel_hub.model [--show|--render|--export]")
+
+
+if __name__ == "__main__":
+    main()

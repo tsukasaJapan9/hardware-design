@@ -86,3 +86,11 @@ def test_missing_retention_is_rejected(tmp_path):
     bad = MINIMAL.replace("    retention: M3 タッピングネジ x4\n", "")
     with pytest.raises(BomError, match="retention"):
         load_bom(write(tmp_path, bad))
+
+
+def test_provisional_loads_but_warns(tmp_path):
+    """暫定寸法は設計を止めないが、確定していないことを警告する。"""
+    prov = MINIMAL.replace("confidence: datasheet", "confidence: provisional")
+    with pytest.warns(UserWarning, match="暫定"):
+        bom = load_bom(write(tmp_path, prov))
+    assert [c.id for c in bom.provisional] == ["board1"]
