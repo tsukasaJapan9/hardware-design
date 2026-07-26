@@ -1,14 +1,22 @@
 project: cozmo_clone
 
-# 段階 2（部品の洗い出し）時点の部品表。
+# 段階 3（寸法調査）進行中の部品表。
 #
-# size が入っていない部品は寸法が未調査。load_bom() はそれらを列挙して BomError を出し、
+# size が入っていない部品は寸法が未確定。load_bom() がそれらを列挙して BomError を出し、
 # 段階 4（CAD 設計）に進ませない。これは不備ではなく、確定を強制するための設計。
 #
-# size が入っていて confidence: provisional のものは、メーカーの仕様表の値を検索結果経由で
-# 得たもの。docs.m5stack.com / shop.m5stack.com が本実行環境から 403 で読めず、
-# 一次ページを直接確認できていないため provisional としている。
-# ユーザーがブラウザで公式ページ・機械図面を取得したら datasheet に格上げする。
+# confidence の使い分け:
+#   datasheet    — メーカー公式図面・データシートで裏を取った（source 必須）
+#   user_provided— ユーザーが値を指定した、または手持ち品
+#   provisional  — 骨格設計を進めるための仮値。印刷・発注の前に実測して確定する
+#
+# 本実行環境からは docs.m5stack.com / shop.m5stack.com / タミヤ / 各販売サイトが
+# すべて 403 で読めない。M5Stack 製品の値は検索結果経由で得た仕様表の値であり、
+# 一次ページを直接確認できていないため provisional にしてある。
+#
+# ここに登場しない「自分で設計して印刷する部品」（胴体シェル、頭部シェル、
+# リフトアームのリンク、XL330→ホイール変換ハブ）は BOM の対象外。
+# model.py で形状として作り、購入部品との干渉を検証する。
 
 components:
   # ------------------------------------------------------------------
@@ -32,21 +40,43 @@ components:
     note: >-
       外形 24.0 x 24.0 x 12.9 mm は仕様表の値（検索結果経由）。一次ページ未確認のため provisional。
       要確認: (1) 底面の取付穴の有無・位置・径、(2) USB-C コネクタ中心の座標、
-      (3) Atomic Motion Base とスタックしたときの合計高さ。
+      (3) Grove HY2.0-4P ポートの位置と向き。
       本機の制御中枢。内蔵 LCD は胴体内に隠れるが、デバッグ表示に使う。
+      内蔵 BMI270 で持ち上げ検知・転倒検知を行うため、胴体に対して姿勢が固定される位置に付けること。
 
-  - id: atomic_motion_base
-    name: M5Stack Atomic Motion Base v1.2（サーボ4ch + DCモータ2ch + 18350ホルダ）
+  - id: servo_if_board
+    name: B-SKY Lab DYNAMIXEL XL330 インターフェース基板 v2.0（MAX3485 半二重 TTL）
     category: board
-    # size 未調査 — 18350 電池ホルダを含む外形が必要
+    # X/Y は公式の基板外形図で確定。Z（基板厚 + コネクタ高さ）のみ未確認の仮値
+    size: [50.0, 20.0, 12.0]
+    mount_holes: [[5.0, 5.0], [45.0, 5.0], [5.0, 15.0], [45.0, 15.0]]
     clearance: 1.5
-    retention: 胴体シャーシのボスに M2 タッピングネジ（AtomS3R とスタックした状態で共締め）
+    retention: 胴体シャーシのボスに 4 点ネジ止め（ネジ径は取付穴径の実測後に確定）
+    confidence: provisional
+    source: https://github.com/kim-xps12/m5stack_board_dynamixel_ttl_rs3485/blob/master/docs/size.png
+    note: >-
+      **基板外形 50.0 x 20.0 mm と取付穴ピッチ 40.0 x 10.0 mm は公式の基板外形図で確定**
+      （図面は datasheets/bsky_xl330_if/size.png に保存済み）。
+      穴中心は基板の端から X 5.0 / Y 5.0 mm（外形とピッチから算出）。
+      高さ 12.0 mm は基板厚 1.6 + JST コネクタ高さを見込んだ仮値であり、**未実測**。
+      要実測: (1) コネクタを含む高さ、(2) 取付穴の径。この 2 つが確定すれば datasheet に格上げできる。
+      在庫切れの場合は設計データ（MIT）から自作できる。
+
+  - id: dcdc_5v
+    name: 5V DC-DC コンバータ（NiMH 4.8V → 制御系 5V）
+    category: board
+    # 実測値ではなく「設計側から与えた包絡寸法」。この枠に収まる品を選ぶ
+    size: [25.0, 18.0, 10.0]
+    clearance: 1.0
+    retention: 両面テープまたは胴体シャーシのポケットに収めて押さえる
     confidence: provisional
     note: >-
-      要調査: 外形 W x D x H（**18350 電池ホルダの張り出しを含む**）、取付穴の位置・径、
-      サーボ/DC モータ端子と Grove ポートの位置と向き（配線の引き出し方向が筐体設計を左右する）。
-      24 x 24 mm の Atom シリーズ規格と推定されるが、電池ホルダぶん大きいはずなので推定値は入れない。
-      本機の 4 自由度（DC 2ch + サーボ 2ch）にちょうど一致する。電流監視 INA226 内蔵。
+      **この size は実測値ではなく、設計側から与えた包絡寸法。** 部品選定をこの枠に制約する。
+      要決定: 必要かどうかを含めて未決定。NiMH 4.8V（満充電 ~5.7V）を AtomS3R と Unit CamS3 の
+      5V 入力へ直結できるなら不要になる。サーボの突入電流による電圧降下がロジックに回るのを
+      避けたい場合は、昇圧コンバータで分離する。
+      出力電流は AtomS3R + Unit CamS3 で 0.5A 程度。基板型の昇圧モジュールなら一般にこの枠に収まる。
+      **型番確定後に実寸を測り、枠を超えていればレイアウトをやり直すこと。**
 
   # ------------------------------------------------------------------
   # sensor — センサ
@@ -73,23 +103,28 @@ components:
     note: >-
       外形 40 x 24 x 11 mm は仕様表の値（検索結果経由）。一次ページ未確認のため provisional。
       要確認: (1) 取付穴の有無・位置、(2) レンズ中心の座標とレンズ外径、(3) USB-C の座標。
+      上の connectors の座標は「モジュール中央にレンズ」という仮定であり、要確認。
       DFOV 66.5 度。映像は母艦へ直接 WiFi 送信し、制御系とは分離する。
 
   - id: cliff_sensor_fl
     name: 崖センサ（反射型赤外線）左前
     category: sensor
-    # size 未調査 — 型番が未決定
+    # 実測値ではなく「設計側から与えた包絡寸法」。この枠に収まる品を選ぶ
+    size: [12.0, 8.0, 8.0]
     clearance: 0.5
     retention: 胴体底面のポケットに圧入し、底板で押さえる
     confidence: provisional
     note: >-
       **卓上運用では必須部品。** 実物 Cozmo も 4 個搭載し、机の端を検知して落下を防ぐ。
-      要決定: 型番（TCRT5000 系の反射型フォトインタラプタ / M5Stack Unit ToF 系 / 秋月の反射センサ）。
-      決定後に外形・取付穴・検知面の向きを調査する。床面までの距離は 5〜15 mm を想定。
+      **この size は実測値ではなく、設計側から与えた包絡寸法。** 素子単体（TCRT5000 は
+      10.2 x 5.8 x 7 mm 級）が収まる枠であり、基板付きモジュールを選ぶと確実に超える。
+      要決定: 型番と実装形態（素子直付け / モジュール）。決定後に外形・検知面の向き・
+      検知距離（車高 10〜20 mm を想定）を調査し、この枠を見直すこと。
 
   - id: cliff_sensor_fr
     name: 崖センサ（反射型赤外線）右前
     category: sensor
+    size: [12.0, 8.0, 8.0]
     clearance: 0.5
     retention: 胴体底面のポケットに圧入し、底板で押さえる
     confidence: provisional
@@ -98,111 +133,167 @@ components:
   # ------------------------------------------------------------------
   # actuator — アクチュエータ
   # ------------------------------------------------------------------
-  - id: drive_motor_l
-    name: 走行用 DC ギヤードモータ（N20 系）左
+  - id: servo_wheel_l
+    name: DYNAMIXEL XL330-M077-T（左車輪、速度制御）
     category: actuator
-    # size 未調査 — ギヤ比で全長が変わるため型番の確定が先
+    size: [20.0, 34.0, 26.0]
+    hole_dia: 2.0
     clearance: 1.0
-    retention: 胴体シャーシのモータマウントに M2 ネジ 2 本（N20 標準の取付穴）
-    confidence: provisional
+    retention: 胴体シャーシにケース側面の M2 セルフタッピング穴で固定（穴座標は公式図面で確定させる）
+    confidence: datasheet
+    source: https://emanual.robotis.com/docs/en/dxl/x/xl330-m077/
     note: >-
-      要決定: ギヤ比とエンコーダ有無。全長がギヤ比で 24.2〜27.2 mm の範囲で変わるため、
-      型番を決めないと寸法が確定しない。エンコーダ付きにすると後端に約 9 mm 伸びる。
-      要調査: 全長、ギヤボックス外形、軸径・軸長・D カット、取付穴のピッチとネジ径。
-      キャタピラのスプロケット軸径（drive_track 参照）と軸径を合わせること。
+      ケース外形 20(W) x 34(H) x 26(D) mm、18 g。M288 と同一ケース。
+      **出力軸はケース中央ではない。** W 方向は中央、H 方向は上端から 9.5 mm
+      （datasheets/xl330/XL_XC-330.pdf で確定）。CAD では箱近似ではなく
+      hwlib.parts.xl330 の実形状モデル（軸原点）を使う。
+      mount_holes は公式図面を正とするため、ここには登録しない。
+      ホーン穴 4 x φ1.6・P.C.D φ12・M2 タッピング（ねじ込み深さ 3.0 mm Max）。
+      無負荷 383 rpm。車輪径 58 mm で最高 1.16 m/s。
 
-  - id: drive_motor_r
-    name: 走行用 DC ギヤードモータ（N20 系）右
+  - id: servo_wheel_r
+    name: DYNAMIXEL XL330-M077-T（右車輪、速度制御）
     category: actuator
+    size: [20.0, 34.0, 26.0]
+    hole_dia: 2.0
     clearance: 1.0
-    retention: 胴体シャーシのモータマウントに M2 ネジ 2 本
-    confidence: provisional
-    note: drive_motor_l と同一部品。左右対称に配置する
+    retention: 胴体シャーシにケース側面の M2 セルフタッピング穴で固定
+    confidence: datasheet
+    source: https://emanual.robotis.com/docs/en/dxl/x/xl330-m077/
+    note: servo_wheel_l と同一部品。左右対称に配置する
 
   - id: servo_lift
-    name: リフトアーム用マイクロサーボ
+    name: DYNAMIXEL XL330-M288-T（リフトアーム、位置制御 + 電流制限）
     category: actuator
-    # size 未調査 — 型番が未決定
+    size: [20.0, 34.0, 26.0]
+    hole_dia: 2.0
     clearance: 1.0
-    retention: 胴体シャーシのサーボポケットに落とし込み、標準の取付タブを M2 ネジ 2 本で固定
-    confidence: provisional
+    retention: 胴体シャーシにケース側面の M2 セルフタッピング穴で固定
+    confidence: datasheet
+    source: https://emanual.robotis.com/docs/en/dxl/x/xl330-m288/
     note: >-
-      要決定: 型番（SG90 / SG92R / MG90S など）。金属ギヤ（MG90S）はバックラッシュが小さく
-      アームの垂れが減るが重い。要調査: 外形、取付タブの穴ピッチ、出力軸の位置と
-      セレーション径、ケーブル引き出し方向。
-      **保持力の課題**: アームを上げた姿勢を保つと通電しっぱなしになる。段階 4 で
-      セルフロック機構（ウォームギヤ・ラッチ）を入れるかを判断する。
+      M077 とケース・ホーン・取付穴が共通のため、CAD 上は同一形状として扱える。
+      ストール 0.52 N·m・無負荷 103 rpm。高トルク側を選ぶことで、
+      アームを上げた姿勢を電流制御で保持でき、PWM サーボのような発熱の問題が起きない。
 
   - id: servo_head
-    name: ヘッドチルト用マイクロサーボ
+    name: DYNAMIXEL XL330-M288-T（ヘッドチルト、位置制御）
     category: actuator
+    size: [20.0, 34.0, 26.0]
+    hole_dia: 2.0
     clearance: 1.0
-    retention: 胴体上部のサーボポケットに落とし込み、取付タブを M2 ネジ 2 本で固定
-    confidence: provisional
+    retention: 胴体シャーシにケース側面の M2 セルフタッピング穴で固定
+    confidence: datasheet
+    source: https://emanual.robotis.com/docs/en/dxl/x/xl330-m288/
     note: >-
-      servo_lift と同型番にして部品種類を減らす方針。頭部の搭載物（Unit OLED + Unit CamS3）
-      は合計 20 g 程度と軽いため、トルクは足りる見込み。
+      servo_lift と同一部品。頭部の搭載物（Unit OLED + Unit CamS3）は合計 20 g 程度と軽く、
+      トルクは十分。低速なほうが表情の動きとして自然。
 
-  - id: drive_track
-    name: キャタピラ（無限軌道）+ スプロケット・アイドラ・ロードホイール 左右分
+  - id: wheel_l
+    name: タミヤ No.145 ナロータイヤ（Item 70145、58 mm 径）左
     category: actuator
-    # size 未調査 — 調達方法が未決定
+    size: [58.0, 58.0, 16.0]
     clearance: 1.0
-    retention: スプロケットはモータ軸に圧入または止めネジ、アイドラは胴体シャーシの軸に嵌める
-    confidence: provisional
+    retention: XL330→ホイール変換ハブ（projects/pen_robo_wheel_hub の設計を流用）に 3x8mm タッピングビス 3 本
+    confidence: datasheet
+    source: https://www.tamiya.com/japan/products/70145/index.html
     note: >-
-      要決定: 調達方法。(A) タミヤ 70100 トラック&ホイールセットの流用、
-      (B) TPU でトラックを自作、(C) Pololu などの市販トラックセット。
-      要調査: トラック幅、リンクピッチ、スプロケット歯数・ピッチ円径、
-      ロードホイール径、軸径、トラック全長（＝前後スプロケット間距離の設計自由度）。
-      **これが決まらないと走行部の骨格寸法が決まらない。** 最優先の調査項目。
+      タイヤ外径 58 x 幅 16 mm、リム外径 42 mm、ハブ取付穴 3 穴 PCD 20 mm
+      （datasheets/tamiya_70145/70145.pdf で確定）。2 本組なので 1 セットで左右分をまかなえる。
+      CAD では hwlib.parts.tamiya_wheel の実形状モデルを使う。
+      **変換ハブは新規設計せず pen_robo_wheel_hub の成果物を流用する。**
+      同ハブには wheel_boss_wall（ホイールのビス穴部の壁厚）が provisional として残っており、
+      印刷前に実測が必要。
+
+  - id: wheel_r
+    name: タミヤ No.145 ナロータイヤ（Item 70145、58 mm 径）右
+    category: actuator
+    size: [58.0, 58.0, 16.0]
+    clearance: 1.0
+    retention: XL330→ホイール変換ハブに 3x8mm タッピングビス 3 本
+    confidence: datasheet
+    source: https://www.tamiya.com/japan/products/70145/index.html
+    note: wheel_l と同一部品。同じ 1 セットに含まれる
 
   # ------------------------------------------------------------------
   # power — 電源
   # ------------------------------------------------------------------
-  - id: battery_18350
-    name: 18350 リチウムイオン電池（Atomic Motion Base 内蔵ホルダ用）
+  - id: battery_nimh
+    name: NiMH 4.8V パック（トイラジコン用、4 セル）
     category: power
-    size: [18.0, 18.0, 35.0]
-    geometric: false
-    confidence: provisional
+    size: [57.0, 50.0, 16.0]
+    clearance: 2.0
+    retention: 胴体中央のバッテリーベイに収め、工具レスで開く蓋で押さえる
+    confidence: user_provided
     note: >-
-      呼称 18350 は「φ18 x 長さ 35 mm」を表す。実際の保護回路付きセルは数 mm 長いことがある。
-      Atomic Motion Base のホルダに収まるため、占有体積は atomic_motion_base の外形に含める。
-      よって geometric: false とし、単独では配置しない。
-      要確認: Motion Base のホルダに入る実際のセル寸法（保護回路の有無で変わる）。
+      pen_robo 仕様書 §11.6 の手持ち品（W57 x H16 x D50 mm、約 100 g）。
+      size は [幅 X, 奥行き Y, 高さ Z] の順に並べ替えてある。
+      4.8V は XL330 の定格 3.7〜6.0V の中央付近で、降圧せず I/F 基板の外部電源入力へ直結できる。
+      **本機で最も重く、最も体積を食う部品。** 胴体の断面寸法がこれで決まる可能性が高い。
+      要実測: 実際のパック寸法と重量（CAD の質量特性に入れる前に）。
+      交換・充電のため工具レスで取り出せること。
 
   - id: power_switch
-    name: 電源スライドスイッチ
+    name: 電源スライドスイッチ（XL330 バスへの給電を断つ）
     category: power
-    # size 未調査 — 型番が未決定
+    # 実測値ではなく「設計側から与えた包絡寸法」。レバーの突出を含む
+    size: [20.0, 10.0, 12.0]
     clearance: 0.5
     retention: 胴体シェルの角穴に圧入し、内側からリブで押さえる
     confidence: provisional
     note: >-
-      要決定: 型番。Motion Base のバッテリー出力を切る位置に入れる。
-      要調査: 外形、レバーの突出量とストローク、パネル開口の寸法、取付穴。
+      **この size は実測値ではなく、設計側から与えた包絡寸法**（レバーの突出を含む）。
+      要決定: 型番。XL330 4 軸のストール電流は合計で 5A を超えうるため、定格に余裕を見ること。
+      **定格を優先すると大型化しやすく、この枠を超える可能性が高い。**
+      型番確定後に外形・レバーのストローク・パネル開口・取付穴を実測して枠を見直すこと。
       ケースを開けずに操作できる位置に置く。
+
+  - id: bulk_cap
+    name: 低 ESR 電解コンデンサ（470uF 以上、サーボ電源バス端）
+    category: power
+    # 実測値ではなく「設計側から与えた包絡寸法」。φ10 x 20 の円筒が入る直方体
+    size: [10.0, 10.0, 20.0]
+    clearance: 1.0
+    retention: 基板に直付け、または胴体シャーシのクリップで拘束
+    confidence: provisional
+    note: >-
+      XL330 の突入電流で NiMH の内部抵抗により電圧が垂下するのを抑える。pen_robo 仕様書 §7 と同じ対策。
+      **この size は実測値ではなく、設計側から与えた包絡寸法**（φ10 x 20 mm の円筒が入る直方体）。
+      一般的な 470uF/10V 級の低 ESR 電解コンデンサを想定している。型番確定後に実寸で見直すこと。
 
   # ------------------------------------------------------------------
   # wiring — 配線
   # ------------------------------------------------------------------
   - id: neck_harness
-    name: 首を通る配線（Grove HY2.0-4P ×2、サービスループ込み）
+    name: 首を通る配線（Unit OLED の I2C + Unit CamS3 の電源、サービスループ込み）
     category: wiring
-    # size 未調査 — チルト可動域を決めてから、たるみに必要な体積を出す
+    # 設計側から確保する予約体積（首の断面 14 x 10 mm、たるみ 25 mm ぶん）
+    size: [14.0, 10.0, 25.0]
     geometric: true
     clearance: 0.0
     retention: 胴体側・頭部側それぞれでケーブルタイまたはシェルのスリットに通して拘束する
     confidence: provisional
     note: >-
-      **体積を持つ部品として扱う。** Unit OLED（I2C）と Unit CamS3（電源）の 2 本が首を通る。
-      チルト可動域ぶんのたるみ（サービスループ）が無いと、可動のたびに端子に力がかかり断線する。
-      要決定: ヘッドチルトの可動域（実物 Cozmo は俯角〜仰角で約 45 度）。
-      決定後、たるみに必要な体積（首の断面 x 必要長）を size に入れる。
+      **体積を持つ部品として扱う。** チルト可動域ぶんのたるみ（サービスループ）が無いと、
+      可動のたびに端子に力がかかり断線する。
+      **この size は部品の実測値ではなく、設計側で確保する予約体積。**
+      ヘッドチルト可動域を俯角 20 度・仰角 25 度（計 45 度、実物 Cozmo 相当）と仮定し、
+      首の断面 14 x 10 mm にたるみ 25 mm ぶんを見込んだ枠。
+      可動域を変更したら、この枠も見直すこと。実機で Grove ケーブル 2 本を通して確認する。
+
+  - id: dxl_daisy_chain
+    name: DYNAMIXEL TTL デイジーチェーンケーブル（JST EH 3ピン、I/F 基板 + 4 軸）
+    category: wiring
+    size: [1.0, 1.0, 1.0]
+    geometric: false
+    confidence: user_provided
+    note: >-
+      XL330 付属のケーブルでつなぐ。**コネクタは XL330 のケース面から生えるため、
+      その面の前に挿抜空間が要る。** XL330 の配置時にコネクタ面を塞がないこと。
+      要確認: XL330 のコネクタ位置（公式図面）と、必要なケーブル長。
 
   - id: internal_wiring
-    name: 胴体内の配線（モータ 2 本、サーボ 2 本、崖センサ 2 本、電源スイッチ）
+    name: 胴体内のその他の配線（電源スイッチ、崖センサ 2 本、5V 系）
     category: wiring
     size: [1.0, 1.0, 1.0]
     geometric: false
@@ -217,25 +308,50 @@ components:
   - id: unit_oled
     name: M5Stack Unit OLED 1.3インチ（SH1107、128x64 モノクロ）— 顔
     category: display_ui
-    # size 未調査
+    # 実測値ではなく「設計側から与えた包絡寸法」。**要確認の最優先項目**
+    size: [40.0, 30.0, 12.0]
     clearance: 1.0
     retention: 頭部シェルの前面ポケットに収め、背面から押さえ板と M2 ネジ 2 本で固定
     confidence: provisional
     note: >-
       実物 Cozmo の顔も 128x64 のモノクロ OLED であり、解像度・表現とも最も忠実な選択肢。
-      要調査: モジュール外形、**ガラス面の有効表示エリアの寸法と、モジュール外形に対する位置**
-      （顔の窓開口はこれで決まる）、取付穴、Grove コネクタの位置と向き。
+      **この size は実測値ではなく、設計側から与えた包絡寸法。本 BOM で最も不確かな値。**
+      1.3 インチ 128x64 の OLED モジュールが入る枠として置いたもので、根拠は無い。
+      要調査（最優先）: モジュール外形、**ガラス面の有効表示エリアの寸法と、モジュール外形に
+      対する位置**、取付穴、Grove コネクタの位置と向き。
+      **有効表示エリアが分からないと顔の窓開口を切れない。** 頭部の骨格設計はこの枠で
+      進められるが、窓の位置・大きさは実データを得るまで確定できない。
+      これは model.py の PROVISIONAL にも登録し、印刷前のゲートで確定を強制する。
 
   # ------------------------------------------------------------------
   # fastener — 締結
   # ------------------------------------------------------------------
+  - id: caster_rear
+    name: 第 3 の接地点（ボールキャスタまたは 3D プリントのスキッド）
+    category: fastener
+    # 実測値ではなく「設計側から与えた包絡寸法」。市販ボールキャスタを想定した枠
+    size: [20.0, 20.0, 15.0]
+    clearance: 0.5
+    retention: 胴体底面のボスに M2 タッピングネジ、またはシェルと一体で印刷
+    confidence: provisional
+    note: >-
+      **車輪 2 個では自立しないため必須。** 実物 Cozmo はキャタピラの長い接地面で
+      前後に倒れないが、本機は車輪 2 個なので接地点を足す必要がある。
+      要決定: (A) 市販のボールキャスタ、(B) 3D プリントのスキッド（シェルと一体、
+      接地面に PTFE テープを貼る）、(C) 前後 2 箇所に置くか後方 1 箇所か。
+      **リフトアームでキューブを持ち上げると重心が前に移る**ため、
+      前方にも接地点を置くか、車輪を前後方向の中央より前に寄せる必要がある。段階 4 で決める。
+
   - id: screws_m2
-    name: M2 タッピングネジ（樹脂直締め、長さ 6 / 8 mm）
+    name: M2 セルフタッピングネジ（XL330 付属品を含む、長さ 6 / 8 mm）
     category: fastener
     size: [2.0, 2.0, 8.0]
     geometric: false
     confidence: user_provided
-    note: 基板・モータ・サーボの固定。本数は段階 4 のレイアウト確定後に数える
+    note: >-
+      XL330 のケース固定とホーン固定。**ホーンへのねじ込みは深さ 3.0 mm Max のため
+      M2x6 を使う。M2x8 は内部を破損する**（datasheets/README.md 参照）。
+      本数は段階 4 のレイアウト確定後に数える。
 
   - id: screws_m2_6
     name: M2.6 タッピングネジ（樹脂直締め、長さ 8 mm）
@@ -245,7 +361,17 @@ components:
     confidence: user_provided
     note: 胴体シェルと底板、頭部シェルの合わせ面。分解を繰り返す箇所
 
+  - id: screws_wheel
+    name: 3x8mm タッピングビス（ホイール → 変換ハブ、1 輪あたり 3 本）
+    category: fastener
+    size: [3.0, 3.0, 8.0]
+    geometric: false
+    confidence: datasheet
+    source: https://www.tamiya.com/japan/products/70145/index.html
+    note: タミヤ 70145 の付属品。変換ハブ側の下穴は pen_robo_wheel_hub の設計で確定済み
+
 excluded:
   thermal: >-
-    発熱源は ESP32-S3 ×2 とモータドライバのみで、ヒートシンク等の専用部品は不要。
+    発熱源は ESP32-S3 x2、MAX3485、XL330 の内部ドライバのみで、ヒートシンク等の専用部品は不要。
     ただし密閉すると熱がこもるため、胴体側面と底面にスリットを設ける（形状で対応し、部品は持たない）。
+    XL330 はケース自体が放熱面なので、シェルで密着して覆わないこと。

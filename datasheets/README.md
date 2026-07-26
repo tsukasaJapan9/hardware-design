@@ -31,6 +31,29 @@ ROBOTIS DYNAMIXEL XL330 / XC330 シリーズの機械図面（図面日付 28-Ma
 
 反映先: `hwlib/parts/xl330.py`、`hwlib/catalog.py`
 
+### bsky_xl330_if/size.png
+
+B-SKY Lab「DYNAMIXEL XL330 インターフェース基板 for M5Stack」v2.0 の基板外形図。
+設計データ一式が MIT ライセンスで公開されており、その `docs/size.png` を保存したもの。
+
+- 出典: https://github.com/kim-xps12/m5stack_board_dynamixel_ttl_rs3485/blob/master/docs/size.png
+- 取得: 2026-07
+
+読み取れる寸法:
+
+| 項目 | 値 | 用途 |
+|---|---|---|
+| 基板外形 | 50.0 x 20.0 mm | 胴体内のレイアウト |
+| **取付穴ピッチ** | 40.0 x 10.0 mm（4 隅） | 基板固定ボスの位置 |
+| 取付穴の中心 | 基板の端から X 5.0 / Y 5.0 mm（外形とピッチから算出） | 同上 |
+
+図面に数値が無い項目（実測が必要）:
+
+- 取付穴の径 → ボスと締結ネジのサイズが決まらない
+- 基板厚とコネクタを含む高さ → 胴体内のクリアランスが決まらない
+
+反映先: `projects/cozmo_clone/bom.yaml`
+
 ### tamiya_70145/70145.pdf
 
 タミヤ 楽しい工作シリーズ No.145 ナロータイヤセット（Item 70145）組立説明図。
