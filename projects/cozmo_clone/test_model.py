@@ -12,6 +12,7 @@
 import warnings
 
 import pytest
+from build123d import Align, Box, Pos
 
 from hwlib import verify
 from hwlib.features import SCREWS
@@ -132,6 +133,22 @@ def test_camera_view_is_not_blocked_by_the_head(tilt):
         if verify.overlap_volume(part, cone) > verify.EPS_VOLUME
     }
     assert not blocked, f"チルト {tilt:+.0f} 度で頭部がカメラに写り込む: {blocked}"
+
+
+def test_oled_fits_inside_the_head(assembly):
+    """顔の OLED が頭部シェルの内側に収まっていること。
+
+    頭部の搭載物は胴体の内部空間の検査対象外なので、ここで別途確認する。
+    チルト時は頭部と一体で動くため、干渉検査でも検出できない。
+    """
+    hx, hy, hz = P.head_origin
+    cavity = Pos(hx + P.head_wall, hy + P.head_wall, hz + P.head_wall) * Box(
+        P.head_w - 2 * P.head_wall,
+        P.head_d - P.head_wall,
+        P.head_h - 2 * P.head_wall,
+        align=(Align.MIN, Align.MIN, Align.MIN),
+    )
+    verify.assert_contained(assembly["unit_oled"], cavity, name="unit_oled")
 
 
 def test_tilt_bracket_clears_the_tire_in_x():

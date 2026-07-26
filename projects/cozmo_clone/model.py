@@ -127,10 +127,13 @@ class Params:
     arm_length: float = 34.0         # 軸中心からフォーク先端まで
     arm_thickness: float = 4.0       # アームの板厚（X 方向）
     arm_width: float = 10.0          # アームの幅
+    # 先端のフォーク。実物は前方に張り出す大きな C 字のグリッパ
+    fork_h: float = 24.0             # フォークの縦板の高さ
+    fork_tongue: float = 12.0        # 前方へ出す舌の長さ
     # 回転の符号: X 軸まわりの正回転で「前端が下がる」。俯き = 正、仰ぎ = 負。
     # 中立姿勢の俯角。フォーク先端が接地面のすぐ上（数 mm）に来る角度にする。
     # 大きくしすぎると先端が接地面より下に潜り、机を叩く。
-    arm_angle_deg: float = 15.0
+    arm_angle_deg: float = 6.0
 
     # チルトブラケットは胴体外壁とタイヤ内側面の隙間（62.5〜68 mm）を立ち上がる。
     # 板厚と隙間はこの 5.5 mm に収まるよう決める。タイヤ側に 1.5 mm 残す。
@@ -138,11 +141,13 @@ class Params:
     bracket_gap: float = 1.0         # ブラケット立ち上がり部と胴体外壁の隙間
 
     # --- 頭部シェル ---
-    head_w: float = 52.0
-    head_d: float = 38.0
-    head_h: float = 38.0
+    # 実物 Cozmo の頭部は機体の 4〜5 割を占める大きな塊で、前面のほぼ全面が顔。
+    # 小さな箱を胴体の上に載せると「カメラを載せた台車」に見えてしまう。
+    head_w: float = 54.0
+    head_d: float = 44.0
+    head_h: float = 46.0
     head_wall: float = 2.5
-    head_offset_y: float = -32.0     # チルト軸から見た頭部の最小 Y
+    head_offset_y: float = -34.0     # チルト軸から見た頭部の最小 Y
     # 46.0 でチルト両端の天板干渉がぎりぎり消える。印刷公差ぶん 2 mm 余裕を持たせる
     head_offset_z: float = 48.0      # チルト軸から見た頭部の最小 Z（天板より上に出す）
     # ヘッドチルトの可動域（度）。俯き = 正、仰ぎ = 負（arm_angle_deg と同じ規約）。
@@ -185,7 +190,7 @@ class Params:
     # 実物 Cozmo は角が大きく丸められ、車輪部は履帯ハウジングで覆われている。
     # 内部空間は直方体のまま残し、外殻だけを丸めるので搭載物の収まりには影響しない。
     body_fillet: float = 6.0         # 胴体の縦稜のフィレット半径
-    head_fillet: float = 5.0         # 頭部の稜のフィレット半径
+    head_fillet: float = 7.0         # 頭部の稜のフィレット半径
     # 車輪の上を覆うフェンダー（履帯ハウジングに見せる）
     fender_gap: float = 1.0          # タイヤ外周との隙間
     fender_t: float = 2.5            # フェンダーの肉厚
@@ -198,10 +203,11 @@ class Params:
     hump_h: float = 8.0
     hump_fillet: float = 3.0
     # 顔のパネル（黒い面）。この中に OLED の窓を開ける
-    face_panel_w: float = 44.0
-    face_panel_h: float = 26.0
+    # 実物は頭部前面の 8 割ほどを黒いパネルが占める
+    face_panel_w: float = 46.0
+    face_panel_h: float = 34.0
     face_panel_depth: float = 1.2    # 掘り込みの深さ（head_wall を貫かないこと）
-    face_panel_fillet: float = 4.0
+    face_panel_fillet: float = 8.0
     # 頭部から前方に垂らす「あご」。天板との隙間（13 mm）を隠して頭部を大きく見せる造形。
     # **現状は 0（無効）。** 干渉だけなら 10 mm まで許容できるが、カメラが胴体固定のため
     # あごを付けるほど俯いたときの視界を塞ぐ（camera_view_cone のテストで検出）。
@@ -713,9 +719,13 @@ def build_lift_arm() -> Part:
     arm = Pos(x0, ly - P.arm_length, lz - w / 2) * Box(
         t, P.arm_length, w, align=(Align.MIN, Align.MIN, Align.MIN)
     )
-    # 先端のフォーク（キューブを掛ける爪）。下向きに伸ばす
-    arm += Pos(x0, ly - P.arm_length, lz - w / 2 - w) * Box(
-        t, w, w, align=(Align.MIN, Align.MIN, Align.MIN)
+    # 先端のフォーク（キューブを掛ける爪）。実物にならい、縦板 + 前方への舌の C 字にする
+    fork_y = ly - P.arm_length
+    arm += Pos(x0, fork_y, lz - w / 2 - P.fork_h + w) * Box(
+        t, w, P.fork_h, align=(Align.MIN, Align.MIN, Align.MIN)
+    )
+    arm += Pos(x0, fork_y - P.fork_tongue, lz - w / 2 - P.fork_h + w) * Box(
+        t, P.fork_tongue, w, align=(Align.MIN, Align.MIN, Align.MIN)
     )
     return _rotate_about(hub + arm, P.arm_angle_deg, ly, lz)
 
