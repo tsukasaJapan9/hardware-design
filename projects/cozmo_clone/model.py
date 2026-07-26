@@ -42,7 +42,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from build123d import Align, Box, Cylinder, Part, Pos, Rot
+from build123d import Align, Axis, Box, Cone, Cylinder, Part, Pos, Rot, fillet
 
 from hwlib.bom import load_bom
 from hwlib.features import SCREWS, clearance_hole, rect_opening, tapping_boss
@@ -148,7 +148,9 @@ class Params:
     # ヘッドチルトの可動域（度）。俯き = 正、仰ぎ = 負（arm_angle_deg と同じ規約）。
     # 実物 Cozmo 相当の 俯角 20 度 / 仰角 25 度。
     head_tilt_min_deg: float = -25.0
-    head_tilt_max_deg: float = 20.0
+    # 俯角の上限は「頭部がカメラの視界に入らない角度」で決まる。+14 度から写り込む。
+    # カメラが胴体固定であることの代償。実物 Cozmo の俯角（約 22 度）より浅い。
+    head_tilt_max_deg: float = 12.0
 
     # 顔の窓（Unit OLED の有効表示エリア）。**暫定値**
     oled_window_w: float = 29.0
@@ -157,6 +159,8 @@ class Params:
     # カメラのレンズ穴。**暫定値**
     cam_lens_dia: float = 9.0
     cam_lens_offset_z: float = 12.0      # カメラモジュール下端からレンズ中心まで
+    cam_dfov_deg: float = 66.5           # Unit CamS3 の対角視野角
+    cam_view_len: float = 150.0          # 視界の検査に使う距離
 
     # --- 部品の配置（配置後のバウンディングボックス最小コーナー） ---
     # 前部（Y 2〜38）: 崖センサ・前部サーボ・カメラ
@@ -176,6 +180,33 @@ class Params:
     power_switch_pos: tuple[float, float, float] = (0.0, 82.0, 32.0)
     atoms3r_pos: tuple[float, float, float] = (28.0, 100.0, 32.0)
     dcdc_pos: tuple[float, float, float] = (0.0, 104.0, 32.0)
+
+    # --- 外観（Cozmo に寄せる造形） ---
+    # 実物 Cozmo は角が大きく丸められ、車輪部は履帯ハウジングで覆われている。
+    # 内部空間は直方体のまま残し、外殻だけを丸めるので搭載物の収まりには影響しない。
+    body_fillet: float = 6.0         # 胴体の縦稜のフィレット半径
+    head_fillet: float = 5.0         # 頭部の稜のフィレット半径
+    # 車輪の上を覆うフェンダー（履帯ハウジングに見せる）
+    fender_gap: float = 1.0          # タイヤ外周との隙間
+    fender_t: float = 2.5            # フェンダーの肉厚
+    # フェンダーの前端。チルトブラケットの掃引（チルト -25〜+20 度で Y=34 付近まで来る）を
+    # 避ける位置。34 で干渉が消え、印刷公差ぶん 4 mm 余裕を見て 38 にしている。
+    fender_y_min: float = 38.0
+    # 背面上部の張り出し（実物の「バックパック」に相当）
+    hump_w: float = 34.0
+    hump_d: float = 30.0
+    hump_h: float = 8.0
+    hump_fillet: float = 3.0
+    # 顔のパネル（黒い面）。この中に OLED の窓を開ける
+    face_panel_w: float = 44.0
+    face_panel_h: float = 26.0
+    face_panel_depth: float = 1.2    # 掘り込みの深さ（head_wall を貫かないこと）
+    face_panel_fillet: float = 4.0
+    # 頭部から前方に垂らす「あご」。天板との隙間（13 mm）を隠して頭部を大きく見せる造形。
+    # **現状は 0（無効）。** 干渉だけなら 10 mm まで許容できるが、カメラが胴体固定のため
+    # あごを付けるほど俯いたときの視界を塞ぐ（camera_view_cone のテストで検出）。
+    # カメラを頭部に移せる寸法が判明したら、その時点で有効化を検討する。
+    chin_h: float = 0.0
 
     driver_dia: float = 6.0          # 組み立てに使うドライバーの軸径
 
@@ -428,15 +459,45 @@ def _floor_openings() -> Part:
     return cut
 
 
+def _fender(x_min: float, x_max: float) -> Part:
+    """車輪の上を覆うフェンダー。履帯ハウジングに見せるための造形。
+
+    タイヤ外周より fender_gap だけ外側の円弧シェル。上半分だけ残し、
+    前端はリフトアーム／チルトブラケットの掃引を避けて fender_y_min で切る。
+    """
+    ay, az = P.wheel_axis_y, P.wheel_axis_z
+    r_in = P.tire_radius + P.fender_gap
+    r_out = r_in + P.fender_t
+    width = x_max - x_min
+
+    ring = Pos(x_min, ay, az) * Rot(0, 90, 0) * (
+        Cylinder(r_out, width, align=(Align.CENTER, Align.CENTER, Align.MIN))
+        - Cylinder(r_in, width, align=(Align.CENTER, Align.CENTER, Align.MIN))
+    )
+    # 上半分かつ Y >= fender_y_min の部分だけ残す
+    keep = Pos(x_min, P.fender_y_min, az) * Box(
+        width, ay + r_out - P.fender_y_min, r_out,
+        align=(Align.MIN, Align.MIN, Align.MIN),
+    )
+    return ring & keep
+
+
 def build_body() -> Part:
-    """胴体シェル（上面が開いたトレー）。"""
+    """胴体シェル（上面が開いたトレー）。外殻の縦稜を丸め、車輪にフェンダーを付ける。"""
     outer = Pos(-P.wall, -P.wall, -P.floor) * Box(
         P.inner_w + 2 * P.wall,
         P.inner_d + 2 * P.wall,
         P.inner_h + P.floor,
         align=(Align.MIN, Align.MIN, Align.MIN),
     )
+    # 内部空間は直方体のまま。外殻だけ丸めるので、角の肉厚が増えるだけで収まりは変わらない
+    outer = fillet(outer.edges().filter_by(Axis.Z), radius=P.body_fillet)
+
     body = _cut(outer, interior(), "胴体の内部空間", min_removed=1000.0)
+
+    # 車輪のフェンダー（左右）。胴体外壁に付け根を合わせて一体化する
+    body += _fender(-P.wall - P.tire_radius - P.fender_gap - P.fender_t + 8.0, -P.wall)
+    body += _fender(P.inner_w + P.wall, P.inner_w + P.wall + P.tire_radius + P.fender_gap + P.fender_t - 8.0)
 
     # 天板ボスは shell_boss_base_z から天面まで。床から立てると搭載物と必ず干渉する
     boss_h = P.inner_h - P.shell_boss_base_z
@@ -545,7 +606,15 @@ def build_battery_hatch() -> Part:
             P.tab_bump, P.tab_len, P.tab_h - 3.0,
             align=(Align.MIN, Align.MIN, Align.MIN),
         )
-    return hatch
+
+    # 背面上部の張り出し（実物の「バックパック」に相当）
+    hump = Pos(
+        (P.inner_w - P.hump_w) / 2,
+        P.inner_d + P.wall - P.hump_d - 4.0,
+        P.inner_h + P.top_plate - 1.0,
+    ) * Box(P.hump_w, P.hump_d, P.hump_h + 1.0, align=(Align.MIN, Align.MIN, Align.MIN))
+    hump = fillet(hump.edges().filter_by(Axis.Z), radius=P.hump_fillet)
+    return hatch + hump
 
 
 def build_head(tilt_deg: float = 0.0) -> Part:
@@ -558,6 +627,10 @@ def build_head(tilt_deg: float = 0.0) -> Part:
     shell = Pos(hx, hy, hz) * Box(
         P.head_w, P.head_d, P.head_h, align=(Align.MIN, Align.MIN, Align.MIN)
     )
+    # 縦稜と横稜を丸める。実物 Cozmo の頭部は角が大きく落ちている
+    shell = fillet(shell.edges().filter_by(Axis.Z), radius=P.head_fillet)
+    shell = fillet(shell.edges().filter_by(Axis.X), radius=P.head_fillet * 0.6)
+
     cavity = Pos(hx + P.head_wall, hy + P.head_wall, hz + P.head_wall) * Box(
         P.head_w - 2 * P.head_wall,
         P.head_d - P.head_wall,          # 背面は開放
@@ -566,8 +639,19 @@ def build_head(tilt_deg: float = 0.0) -> Part:
     )
     head = _cut(shell, cavity, "頭部の内部空間", min_removed=1000.0)
 
-    # 顔の窓（OLED の有効表示エリア）。前面 = -Y
+    # 顔のパネル（黒い面に見せる掘り込み）。前面を貫通させず、窓だけを貫く。
+    # 実物 Cozmo は顔の大部分が 1 枚の黒いパネルで、その奥に小さなディスプレイがある。
     window_z = oled_module_bottom_z() + P.oled_window_offset_z
+    panel = Pos(
+        hx + (P.head_w - P.face_panel_w) / 2,
+        hy - 0.01,
+        window_z - P.face_panel_h / 2,
+    ) * Box(P.face_panel_w, P.face_panel_depth + 0.01, P.face_panel_h,
+            align=(Align.MIN, Align.MIN, Align.MIN))
+    panel = fillet(panel.edges().filter_by(Axis.Y), radius=P.face_panel_fillet)
+    head = _cut(head, panel, "顔のパネルの掘り込み")
+
+    # 顔の窓（OLED の有効表示エリア）。前面 = -Y
     head = _cut(
         head,
         rect_opening(
@@ -579,6 +663,15 @@ def build_head(tilt_deg: float = 0.0) -> Part:
         ),
         "顔の窓（OLED の有効表示エリア）",
     )
+
+    # 前方に垂らす「あご」。胴体前面より手前にだけ出す
+    if P.chin_h > 0.0:
+        chin_y_max = -P.wall - 1.5
+        chin = Pos(hx, hy, hz - P.chin_h) * Box(
+            P.head_w, chin_y_max - hy, P.chin_h, align=(Align.MIN, Align.MIN, Align.MIN)
+        )
+        chin = fillet(chin.edges().filter_by(Axis.Z), radius=P.head_fillet)
+        head += chin
 
     uy, uz = P.front_axis
     t, w = P.bracket_t, P.arm_width
@@ -625,6 +718,30 @@ def build_lift_arm() -> Part:
         t, w, w, align=(Align.MIN, Align.MIN, Align.MIN)
     )
     return _rotate_about(hub + arm, P.arm_angle_deg, ly, lz)
+
+
+def camera_view_cone() -> Part:
+    """カメラの視野を表す円錐。頭部がここに入ると映像に写り込む。
+
+    カメラは胴体に固定で頭部と一緒に動かないため、頭部を下げたときに
+    頭部の下端やあごが視界に入りうる。これを機械的に検出するために使う。
+    """
+    import math
+
+    lens = _lens_center()
+    half = math.radians(P.cam_dfov_deg / 2)
+    r = P.cam_view_len * math.tan(half)
+    # -Y 方向へ開く円錐。頂点をレンズ位置に置く
+    return Pos(*lens) * Rot(90, 0, 0) * Cone(
+        bottom_radius=0.5, top_radius=r, height=P.cam_view_len,
+        align=(Align.CENTER, Align.CENTER, Align.MIN),
+    )
+
+
+def _lens_center() -> tuple[float, float, float]:
+    """カメラのレンズ中心（胴体座標）。"""
+    bb = _place("unit_cams3", P.camera_pos, rot=FACE_FORWARD_ROT).bounding_box()
+    return ((bb.min.X + bb.max.X) / 2, -P.wall, bb.min.Z + P.cam_lens_offset_z)
 
 
 def head_group(tilt_deg: float = 0.0) -> dict[str, Part]:

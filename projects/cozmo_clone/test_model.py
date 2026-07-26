@@ -21,6 +21,7 @@ from projects.cozmo_clone.model import (
     P,
     PROVISIONAL,
     build_all,
+    camera_view_cone,
     head_group,
     interior,
     if_board_boss_positions,
@@ -99,7 +100,7 @@ def test_no_interference(assembly):
     verify.assert_no_interference(assembly)
 
 
-@pytest.mark.parametrize("tilt", [-25.0, -20.0, -10.0, -5.0, 0.0, 5.0, 10.0, 15.0, 20.0])
+@pytest.mark.parametrize("tilt", [-25.0, -20.0, -10.0, -5.0, 0.0, 4.0, 8.0, 12.0])
 def test_head_clears_everything_through_tilt_range(assembly, tilt):
     """ヘッドチルトの可動域全域で、頭部とブラケットが何にも当たらないこと。
 
@@ -115,6 +116,22 @@ def test_head_clears_everything_through_tilt_range(assembly, tilt):
         if verify.overlap_volume(part, v) > verify.EPS_VOLUME
     }
     assert not blocked, f"チルト {tilt:+.0f} 度で干渉: {blocked}"
+
+
+@pytest.mark.parametrize("tilt", [-25.0, -10.0, 0.0, 6.0, 12.0])
+def test_camera_view_is_not_blocked_by_the_head(tilt):
+    """チルト可動域全域で、頭部がカメラの視界に入らないこと。
+
+    カメラは胴体に固定で頭部と一緒に動かないため、頭部を下げると
+    頭部の下端が画角に入り込む。干渉検査では検出できない種類の破綻。
+    """
+    cone = camera_view_cone()
+    blocked = {
+        name: round(verify.overlap_volume(part, cone), 1)
+        for name, part in head_group(tilt).items()
+        if verify.overlap_volume(part, cone) > verify.EPS_VOLUME
+    }
+    assert not blocked, f"チルト {tilt:+.0f} 度で頭部がカメラに写り込む: {blocked}"
 
 
 def test_tilt_bracket_clears_the_tire_in_x():
