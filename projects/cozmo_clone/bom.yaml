@@ -1,0 +1,251 @@
+project: cozmo_clone
+
+# 段階 2（部品の洗い出し）時点の部品表。
+#
+# size が入っていない部品は寸法が未調査。load_bom() はそれらを列挙して BomError を出し、
+# 段階 4（CAD 設計）に進ませない。これは不備ではなく、確定を強制するための設計。
+#
+# size が入っていて confidence: provisional のものは、メーカーの仕様表の値を検索結果経由で
+# 得たもの。docs.m5stack.com / shop.m5stack.com が本実行環境から 403 で読めず、
+# 一次ページを直接確認できていないため provisional としている。
+# ユーザーがブラウザで公式ページ・機械図面を取得したら datasheet に格上げする。
+
+components:
+  # ------------------------------------------------------------------
+  # board — 電子基板
+  # ------------------------------------------------------------------
+  - id: atoms3r
+    name: M5Stack AtomS3R（ESP32-S3 + BMI270 IMU、0.85インチ LCD）
+    category: board
+    size: [24.0, 24.0, 12.9]
+    connectors:
+      - name: usb_c_program
+        # コネクタ中心の部品ローカル座標は未確認。面の向きだけ先に決めている
+        pos: [12.0, 0.0, 6.0]
+        size: [9.0, 3.5]
+        face: "-y"
+        depth: 20.0
+    clearance: 1.5
+    retention: 胴体シャーシのボスに M2 タッピングネジ（本数・穴位置は取付穴の確認後に確定）
+    confidence: provisional
+    source: https://shop.m5stack.com/products/atoms3r-dev-kit
+    note: >-
+      外形 24.0 x 24.0 x 12.9 mm は仕様表の値（検索結果経由）。一次ページ未確認のため provisional。
+      要確認: (1) 底面の取付穴の有無・位置・径、(2) USB-C コネクタ中心の座標、
+      (3) Atomic Motion Base とスタックしたときの合計高さ。
+      本機の制御中枢。内蔵 LCD は胴体内に隠れるが、デバッグ表示に使う。
+
+  - id: atomic_motion_base
+    name: M5Stack Atomic Motion Base v1.2（サーボ4ch + DCモータ2ch + 18350ホルダ）
+    category: board
+    # size 未調査 — 18350 電池ホルダを含む外形が必要
+    clearance: 1.5
+    retention: 胴体シャーシのボスに M2 タッピングネジ（AtomS3R とスタックした状態で共締め）
+    confidence: provisional
+    note: >-
+      要調査: 外形 W x D x H（**18350 電池ホルダの張り出しを含む**）、取付穴の位置・径、
+      サーボ/DC モータ端子と Grove ポートの位置と向き（配線の引き出し方向が筐体設計を左右する）。
+      24 x 24 mm の Atom シリーズ規格と推定されるが、電池ホルダぶん大きいはずなので推定値は入れない。
+      本機の 4 自由度（DC 2ch + サーボ 2ch）にちょうど一致する。電流監視 INA226 内蔵。
+
+  # ------------------------------------------------------------------
+  # sensor — センサ
+  # ------------------------------------------------------------------
+  - id: unit_cams3
+    name: M5Stack Unit CamS3（ESP32-S3 + OV2640、独立 WiFi カメラ）
+    category: sensor
+    size: [40.0, 24.0, 11.0]
+    connectors:
+      - name: lens
+        pos: [20.0, 12.0, 11.0]
+        size: [9.0, 9.0]
+        face: "+z"
+        depth: 3.0
+      - name: usb_c_program
+        pos: [20.0, 0.0, 5.5]
+        size: [9.0, 3.5]
+        face: "-y"
+        depth: 20.0
+    clearance: 1.0
+    retention: 頭部シェルのポケットに収め、前面パネルで押さえる
+    confidence: provisional
+    source: https://shop.m5stack.com/products/unit-cams3-wi-fi-camera-5mp
+    note: >-
+      外形 40 x 24 x 11 mm は仕様表の値（検索結果経由）。一次ページ未確認のため provisional。
+      要確認: (1) 取付穴の有無・位置、(2) レンズ中心の座標とレンズ外径、(3) USB-C の座標。
+      DFOV 66.5 度。映像は母艦へ直接 WiFi 送信し、制御系とは分離する。
+
+  - id: cliff_sensor_fl
+    name: 崖センサ（反射型赤外線）左前
+    category: sensor
+    # size 未調査 — 型番が未決定
+    clearance: 0.5
+    retention: 胴体底面のポケットに圧入し、底板で押さえる
+    confidence: provisional
+    note: >-
+      **卓上運用では必須部品。** 実物 Cozmo も 4 個搭載し、机の端を検知して落下を防ぐ。
+      要決定: 型番（TCRT5000 系の反射型フォトインタラプタ / M5Stack Unit ToF 系 / 秋月の反射センサ）。
+      決定後に外形・取付穴・検知面の向きを調査する。床面までの距離は 5〜15 mm を想定。
+
+  - id: cliff_sensor_fr
+    name: 崖センサ（反射型赤外線）右前
+    category: sensor
+    clearance: 0.5
+    retention: 胴体底面のポケットに圧入し、底板で押さえる
+    confidence: provisional
+    note: cliff_sensor_fl と同一部品。左右対称に配置する
+
+  # ------------------------------------------------------------------
+  # actuator — アクチュエータ
+  # ------------------------------------------------------------------
+  - id: drive_motor_l
+    name: 走行用 DC ギヤードモータ（N20 系）左
+    category: actuator
+    # size 未調査 — ギヤ比で全長が変わるため型番の確定が先
+    clearance: 1.0
+    retention: 胴体シャーシのモータマウントに M2 ネジ 2 本（N20 標準の取付穴）
+    confidence: provisional
+    note: >-
+      要決定: ギヤ比とエンコーダ有無。全長がギヤ比で 24.2〜27.2 mm の範囲で変わるため、
+      型番を決めないと寸法が確定しない。エンコーダ付きにすると後端に約 9 mm 伸びる。
+      要調査: 全長、ギヤボックス外形、軸径・軸長・D カット、取付穴のピッチとネジ径。
+      キャタピラのスプロケット軸径（drive_track 参照）と軸径を合わせること。
+
+  - id: drive_motor_r
+    name: 走行用 DC ギヤードモータ（N20 系）右
+    category: actuator
+    clearance: 1.0
+    retention: 胴体シャーシのモータマウントに M2 ネジ 2 本
+    confidence: provisional
+    note: drive_motor_l と同一部品。左右対称に配置する
+
+  - id: servo_lift
+    name: リフトアーム用マイクロサーボ
+    category: actuator
+    # size 未調査 — 型番が未決定
+    clearance: 1.0
+    retention: 胴体シャーシのサーボポケットに落とし込み、標準の取付タブを M2 ネジ 2 本で固定
+    confidence: provisional
+    note: >-
+      要決定: 型番（SG90 / SG92R / MG90S など）。金属ギヤ（MG90S）はバックラッシュが小さく
+      アームの垂れが減るが重い。要調査: 外形、取付タブの穴ピッチ、出力軸の位置と
+      セレーション径、ケーブル引き出し方向。
+      **保持力の課題**: アームを上げた姿勢を保つと通電しっぱなしになる。段階 4 で
+      セルフロック機構（ウォームギヤ・ラッチ）を入れるかを判断する。
+
+  - id: servo_head
+    name: ヘッドチルト用マイクロサーボ
+    category: actuator
+    clearance: 1.0
+    retention: 胴体上部のサーボポケットに落とし込み、取付タブを M2 ネジ 2 本で固定
+    confidence: provisional
+    note: >-
+      servo_lift と同型番にして部品種類を減らす方針。頭部の搭載物（Unit OLED + Unit CamS3）
+      は合計 20 g 程度と軽いため、トルクは足りる見込み。
+
+  - id: drive_track
+    name: キャタピラ（無限軌道）+ スプロケット・アイドラ・ロードホイール 左右分
+    category: actuator
+    # size 未調査 — 調達方法が未決定
+    clearance: 1.0
+    retention: スプロケットはモータ軸に圧入または止めネジ、アイドラは胴体シャーシの軸に嵌める
+    confidence: provisional
+    note: >-
+      要決定: 調達方法。(A) タミヤ 70100 トラック&ホイールセットの流用、
+      (B) TPU でトラックを自作、(C) Pololu などの市販トラックセット。
+      要調査: トラック幅、リンクピッチ、スプロケット歯数・ピッチ円径、
+      ロードホイール径、軸径、トラック全長（＝前後スプロケット間距離の設計自由度）。
+      **これが決まらないと走行部の骨格寸法が決まらない。** 最優先の調査項目。
+
+  # ------------------------------------------------------------------
+  # power — 電源
+  # ------------------------------------------------------------------
+  - id: battery_18350
+    name: 18350 リチウムイオン電池（Atomic Motion Base 内蔵ホルダ用）
+    category: power
+    size: [18.0, 18.0, 35.0]
+    geometric: false
+    confidence: provisional
+    note: >-
+      呼称 18350 は「φ18 x 長さ 35 mm」を表す。実際の保護回路付きセルは数 mm 長いことがある。
+      Atomic Motion Base のホルダに収まるため、占有体積は atomic_motion_base の外形に含める。
+      よって geometric: false とし、単独では配置しない。
+      要確認: Motion Base のホルダに入る実際のセル寸法（保護回路の有無で変わる）。
+
+  - id: power_switch
+    name: 電源スライドスイッチ
+    category: power
+    # size 未調査 — 型番が未決定
+    clearance: 0.5
+    retention: 胴体シェルの角穴に圧入し、内側からリブで押さえる
+    confidence: provisional
+    note: >-
+      要決定: 型番。Motion Base のバッテリー出力を切る位置に入れる。
+      要調査: 外形、レバーの突出量とストローク、パネル開口の寸法、取付穴。
+      ケースを開けずに操作できる位置に置く。
+
+  # ------------------------------------------------------------------
+  # wiring — 配線
+  # ------------------------------------------------------------------
+  - id: neck_harness
+    name: 首を通る配線（Grove HY2.0-4P ×2、サービスループ込み）
+    category: wiring
+    # size 未調査 — チルト可動域を決めてから、たるみに必要な体積を出す
+    geometric: true
+    clearance: 0.0
+    retention: 胴体側・頭部側それぞれでケーブルタイまたはシェルのスリットに通して拘束する
+    confidence: provisional
+    note: >-
+      **体積を持つ部品として扱う。** Unit OLED（I2C）と Unit CamS3（電源）の 2 本が首を通る。
+      チルト可動域ぶんのたるみ（サービスループ）が無いと、可動のたびに端子に力がかかり断線する。
+      要決定: ヘッドチルトの可動域（実物 Cozmo は俯角〜仰角で約 45 度）。
+      決定後、たるみに必要な体積（首の断面 x 必要長）を size に入れる。
+
+  - id: internal_wiring
+    name: 胴体内の配線（モータ 2 本、サーボ 2 本、崖センサ 2 本、電源スイッチ）
+    category: wiring
+    size: [1.0, 1.0, 1.0]
+    geometric: false
+    confidence: user_provided
+    note: >-
+      個々の取り回しは設計しないが、部品表には計上する。
+      胴体内のレイアウトでは、部品同士の隙間に配線が通る余地を残すこと。
+
+  # ------------------------------------------------------------------
+  # display_ui — 表示・操作
+  # ------------------------------------------------------------------
+  - id: unit_oled
+    name: M5Stack Unit OLED 1.3インチ（SH1107、128x64 モノクロ）— 顔
+    category: display_ui
+    # size 未調査
+    clearance: 1.0
+    retention: 頭部シェルの前面ポケットに収め、背面から押さえ板と M2 ネジ 2 本で固定
+    confidence: provisional
+    note: >-
+      実物 Cozmo の顔も 128x64 のモノクロ OLED であり、解像度・表現とも最も忠実な選択肢。
+      要調査: モジュール外形、**ガラス面の有効表示エリアの寸法と、モジュール外形に対する位置**
+      （顔の窓開口はこれで決まる）、取付穴、Grove コネクタの位置と向き。
+
+  # ------------------------------------------------------------------
+  # fastener — 締結
+  # ------------------------------------------------------------------
+  - id: screws_m2
+    name: M2 タッピングネジ（樹脂直締め、長さ 6 / 8 mm）
+    category: fastener
+    size: [2.0, 2.0, 8.0]
+    geometric: false
+    confidence: user_provided
+    note: 基板・モータ・サーボの固定。本数は段階 4 のレイアウト確定後に数える
+
+  - id: screws_m2_6
+    name: M2.6 タッピングネジ（樹脂直締め、長さ 8 mm）
+    category: fastener
+    size: [2.6, 2.6, 8.0]
+    geometric: false
+    confidence: user_provided
+    note: 胴体シェルと底板、頭部シェルの合わせ面。分解を繰り返す箇所
+
+excluded:
+  thermal: >-
+    発熱源は ESP32-S3 ×2 とモータドライバのみで、ヒートシンク等の専用部品は不要。
+    ただし密閉すると熱がこもるため、胴体側面と底面にスリットを設ける（形状で対応し、部品は持たない）。
