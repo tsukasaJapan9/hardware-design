@@ -221,9 +221,12 @@ def test_hub_does_not_interfere_with_servo_or_wheel():
 
 
 # --- 製造ゲート（実測待ちの検出）---
-@pytest.mark.xfail(reason="嵌合寸法が provisional（実測待ち）。実測して Params 更新後に外す", strict=True)
 def test_ready_to_manufacture():
-    """印刷・発注してよい状態か。暫定寸法が残っている限り失敗する。"""
+    """印刷・発注してよい状態か。暫定寸法が残っている限り失敗する。
+
+    タミヤ側・XL330 側とも実測で確定し、暫定寸法は残っていない。このゲートが
+    通る＝印刷・発注に進んでよい。新たに provisional を足したら再び落ちる。
+    """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         verify.assert_no_provisional(bom=BOM, dims=PROVISIONAL, context="変換ハブ")
