@@ -25,13 +25,17 @@ components:
     note: 外径58/幅16は確定。3点留めPCD・中央ボア径は実測待ち（PROVISIONAL 参照）
 
   - id: screws_horn
-    name: M2 ネジ x4（ホーン固定・付属品）
+    name: M2x6 なべ小ねじ x4（ホーン固定・XL330 付属）
     category: fastener
     size: [2.0, 2.0, 6.0]
     confidence: datasheet
     geometric: false
     source: https://emanual.robotis.com/docs/en/dxl/x/xl330-m288/
-    note: XL330 ホーン付属の M2x6
+    note: >
+      XL330 付属の M2x6 を使う。ハブ全高 7.5mm に対しネジが短いため、頭を
+      座ぐり 4.5mm と深く沈めて先端をホーンまで届かせる（model.Params.cb_depth）。
+      頭は上面より 3mm 下に収まりウェブに当たらない。ねじ込みは DP3.0 Max
+      ちょうど。M2x8 以上を入れると DP3.0 を超えサーボ内部を破損するので不可。
 
   - id: screws_wheel
     name: 3x8mm タッピングビス x3（ホイール固定・タミヤ付属）
@@ -40,7 +44,10 @@ components:
     confidence: datasheet
     geometric: false
     source: https://www.tamiya.com/japan/products/70145/index.html
-    note: タミヤ 70145 付属
+    note: >
+      タミヤ 70145 付属。実測外径 3.0mm（2026-08-09）。ハブ側は下穴 φ2.7 設計
+      （刷り上がり φ2.5 目標＝呼び径×0.83）＋入口面取り。初回印刷で φ2.4 設計の
+      穴が縮んでビスが入らなかったため、縮み見込み 0.2 を足して見直した。
 
 excluded:
   board: 電子基板は載らない
