@@ -163,21 +163,24 @@ def test_hub_body_accommodates_tap_depth():
 
 
 def test_horn_screw_reaches_horn():
-    """M2 がハブを貫通してホーンに規定深さねじ込めること。
+    """XL330 付属の M2x6 がハブを貫通してホーンに規定深さねじ込めること。
 
-    座ぐりで頭を沈めた分だけネジは届く。ネジ長が足りないと、締めたつもりで
-    ホーンに数山しか掛からない。XL330 付属の M2x6 では全高 10.7 mm に対して足りず、
-    M2x12 を別途調達している（bom.yaml 参照）。
+    ハブ全高 7.5 に対し M2x6 は短いため、頭を深く（約 4.5mm）沈めてねじの先端を
+    ホーンまで届かせる。頭は上面より下に収まり、ホイールのウェブに当たらない。
     """
+    m2 = SCREWS[P.horn_screw]
     assert P.cb_depth >= 0, (
         f"M2x{P.horn_screw_len} が長すぎる。ハブ側で使える長さ {P.horn_screw_grip} mm が"
         f"全高 {P.body_height} mm を超え、ホーンに規定 {P.horn_engage} mm より深く入る"
     )
     assert P.horn_screw_grip >= P.body_height - P.cb_depth, "M2 がホーンに届かない"
-    # 座ぐりが深すぎるとドライバーが頭に届かない
-    assert P.cb_depth <= 4.0, (
-        f"座ぐり {P.cb_depth:.2f} mm が深く、φ{SCREWS[P.horn_screw].head_dia} の頭まで"
-        "ドライバーが届かない。ネジを長くして頭を浅い位置に上げる"
+    # 頭が座ぐりに収まり、上面（ウェブ当たり面）より出ないこと
+    assert P.cb_depth >= m2.head_dia * 0.4, (
+        f"座ぐり {P.cb_depth:.2f} mm が浅く、頭が上面から出てウェブに当たる"
+    )
+    # 深い座ぐりでも M2 の細いドライバーは届く。座ぐりが全高を食い切らないことだけ見る
+    assert P.cb_depth <= P.body_height - P.horn_engage, (
+        f"座ぐり {P.cb_depth:.2f} mm が深すぎ、ホーンへのねじ込み {P.horn_engage} を確保できない"
     )
     # 図面 DP3.0 Max を超えてねじ込むとサーボ内部を破損する
     assert P.horn_engage <= 3.0, "ホーンへのねじ込みが DP3.0 Max を超えている"

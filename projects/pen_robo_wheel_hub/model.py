@@ -70,7 +70,7 @@ class Params:
 
     # --- 確定（設計上の選択・はめ合い） ---
     horn_screw: str = "M2"       # ホーン固定ネジ
-    horn_screw_len: float = 8.0  # M2x8（付属の M2x6 では届かない。BOM 参照）
+    horn_screw_len: float = 6.0  # XL330 付属の M2x6 を使う。頭は深い座ぐりに沈める
     horn_engage: float = 3.0     # ホーンへのねじ込み深さ（図面 DP3.0 Max）
     wheel_screw: str = "M3"      # タミヤ 3x8 タッピング（呼び径3）
     wheel_screw_len: float = 8.0
