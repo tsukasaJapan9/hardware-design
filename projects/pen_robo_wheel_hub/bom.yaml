@@ -45,7 +45,10 @@ components:
     confidence: datasheet
     geometric: false
     source: https://www.tamiya.com/japan/products/70145/index.html
-    note: タミヤ 70145 付属
+    note: >
+      タミヤ 70145 付属。実測外径 3.0mm（2026-08-09）。ハブ側は下穴 φ2.7 設計
+      （刷り上がり φ2.5 目標＝呼び径×0.83）＋入口面取り。初回印刷で φ2.4 設計の
+      穴が縮んでビスが入らなかったため、縮み見込み 0.2 を足して見直した。
 
 excluded:
   board: 電子基板は載らない

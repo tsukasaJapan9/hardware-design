@@ -127,19 +127,29 @@ def test_hub_fits_within_wheel_diameter(hub):
 def test_wheel_tapping_screw_fit():
     """3x8 タッピングビスの下穴・ねじ込み深さが成立すること。
 
+    実測外径 3.0mm を基準に、刷り上がり下穴 2.5mm（呼び径×0.83）で評価する。
     実測ウェブ厚 2.0mm でねじ込み 8-2=6.0mm となり、指針（呼び径の2倍）ちょうど。
     余裕はないので、ウェブ厚が個体差で厚い場合は 3x10 に変える。
     """
-    s = SCREWS[P.wheel_screw]
     verify.assert_boss_screw_fit(
-        screw_dia=s.nominal,
-        pilot_dia=s.pilot_dia,
-        boss_outer_dia=P.adapter_od,   # 本体が十分太いので割れ余裕は大きい
+        screw_dia=P.wheel_screw_od,        # 実測外径
+        pilot_dia=P.wheel_pilot_target,    # 刷り上がりの下穴で評価（設計値は縮み分だけ大きい）
+        boss_outer_dia=P.adapter_od,       # 本体が十分太いので割れ余裕は大きい
         boss_depth=P.wheel_tap_depth,
         screw_len=P.wheel_screw_len,
         plate_thickness=P.wheel_boss_wall,  # ホイール壁を通す分
         name="ホイール固定ビス",
     )
+
+
+def test_wheel_pilot_has_print_allowance():
+    """下穴の設計径が、刷り上がり目標より縮み分だけ大きく掘られていること。
+
+    初回印刷で φ2.4 設計の穴が縮んで細くなり、φ3.0 のビスが入らなかった。
+    設計値 = 目標 + 縮み見込み になっていることを保証する。
+    """
+    assert P.wheel_pilot_dia == pytest.approx(P.wheel_pilot_target + P.hole_print_allow)
+    assert P.wheel_pilot_dia > P.wheel_pilot_target
 
 
 def test_hub_body_accommodates_tap_depth():

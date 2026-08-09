@@ -22,7 +22,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from build123d import Align, Cylinder, Part, Pos
+from build123d import Align, Cone, Cylinder, Part, Pos
 
 from hwlib.bom import load_bom
 from hwlib.features import SCREWS
@@ -72,8 +72,14 @@ class Params:
     horn_screw: str = "M2"       # ホーン固定ネジ
     horn_screw_len: float = 8.0  # M2x8（付属の M2x6 では届かない。BOM 参照）
     horn_engage: float = 3.0     # ホーンへのねじ込み深さ（図面 DP3.0 Max）
-    wheel_screw: str = "M3"      # 3x8 タッピングビス（呼び径3）
+    wheel_screw: str = "M3"      # タミヤ 3x8 タッピング（呼び径3）
     wheel_screw_len: float = 8.0
+    wheel_screw_od: float = 3.0   # 付属ビスの実測外径（2026-08-09。山の外どうし）
+    # 目標の“刷り上がり”下穴径（呼び径 × 0.83）。タッピングが食いつつ入る径
+    wheel_pilot_target: float = 2.5
+    # FDM の小径穴が設計より縮む見込み。下穴はこの分だけ大きく掘り、刷り上がりで target にする。
+    # 初回印刷で φ2.4 設計の穴にビスが入らなかった（実穴が縮んで細すぎた）ことへの対策
+    hole_print_allow: float = 0.2
     pocket_fit: float = 0.10     # ハブ外径とポケット壁のすきま（片側）
     wheel_gap: float = 0.50      # ホイールのフランジ端面とホーン当たり面のすきま
     skirt_fit: float = 0.10      # 芯出しスカートのすきま（片側）
@@ -109,6 +115,11 @@ class Params:
     def wheel_inner_face_z(self) -> float:
         """ホイールのハブ側フランジ端面の Z。ウェブがハブ上面に接する位置から逆算する。"""
         return self.body_height - self.wheel_recess_depth
+
+    @property
+    def wheel_pilot_dia(self) -> float:
+        """ハブに掘る下穴の設計径。刷り上がりで wheel_pilot_target になるよう縮み分を足す。"""
+        return self.wheel_pilot_target + self.hole_print_allow
 
     @property
     def boss_relief_dia(self) -> float:
@@ -222,12 +233,18 @@ def build_hub() -> Part:
             align=(Align.CENTER, Align.CENTER, Align.MIN),
         )
 
-    # ホイール固定用: 3x8 タッピングビスの下穴（上面から）
-    m3 = SCREWS[P.wheel_screw]
+    # ホイール固定用: 3x8 タッピングビスの下穴（上面から）。
+    # 下穴径は付属ビスの実測外径基準（wheel_pilot_dia）で、FDM の縮み分を見込む。
+    # 入口に面取り（リードイン）を付け、ビスが食いつきを始めやすくする。
     tap_depth = P.wheel_tap_depth
+    lead_in = 1.0
     for x, y in wheel_screw_positions():
         hub -= Pos(x, y, h - tap_depth) * Cylinder(
-            m3.pilot_dia / 2, tap_depth + 0.01,
+            P.wheel_pilot_dia / 2, tap_depth + 0.01,
+            align=(Align.CENTER, Align.CENTER, Align.MIN),
+        )
+        hub -= Pos(x, y, h - lead_in) * Cone(
+            P.wheel_pilot_dia / 2, P.wheel_pilot_dia / 2 + lead_in, lead_in + 0.01,
             align=(Align.CENTER, Align.CENTER, Align.MIN),
         )
 
