@@ -64,6 +64,9 @@ class Params:
     wheel_width: float = tamiya_wheel.WHEEL_WIDTH
     wheel_center_bore_dia: float = tamiya_wheel.CENTER_BORE_DIA
     wheel_pin_hole_dia: float = tamiya_wheel.PIN_HOLE_DIA
+    # ウェブ中央の円状突起（実測 2026-08-09）。ハブ上面に逃げ座ぐりを掘って避ける
+    wheel_center_boss_dia: float = tamiya_wheel.CENTER_BOSS_DIA
+    wheel_center_boss_h: float = tamiya_wheel.CENTER_BOSS_H
 
     # --- 確定（設計上の選択・はめ合い） ---
     horn_screw: str = "M2"       # ホーン固定ネジ
@@ -77,6 +80,7 @@ class Params:
     skirt_wall: float = 1.5      # スカートの肉厚
     skirt_clearance: float = 0.5  # スカート先端とケース前面のすきま（擦れ防止）
     tap_floor: float = 1.5       # 下穴の底に残す肉厚
+    boss_relief_fit: float = 0.4  # 中央突起の逃げ座ぐりのすきま（径は片側、深さも同値）
 
     @property
     def adapter_od(self) -> float:
@@ -105,6 +109,16 @@ class Params:
     def wheel_inner_face_z(self) -> float:
         """ホイールのハブ側フランジ端面の Z。ウェブがハブ上面に接する位置から逆算する。"""
         return self.body_height - self.wheel_recess_depth
+
+    @property
+    def boss_relief_dia(self) -> float:
+        """中央突起の逃げ座ぐりの径。突起外径に片側すきまを足す。"""
+        return self.wheel_center_boss_dia + 2 * self.boss_relief_fit
+
+    @property
+    def boss_relief_depth(self) -> float:
+        """逃げ座ぐりの深さ。突起高さにすきまを足す。突起頂が底に当たらないようにする。"""
+        return self.wheel_center_boss_h + self.boss_relief_fit
 
     @property
     def skirt_id(self) -> float:
@@ -216,6 +230,13 @@ def build_hub() -> Part:
             m3.pilot_dia / 2, tap_depth + 0.01,
             align=(Align.CENTER, Align.CENTER, Align.MIN),
         )
+
+    # ホイール中央突起の逃げ座ぐり（上面から）。これが無いとハブが突起に乗って
+    # ウェブ面まで密着せず、その分だけ M2 のホーンへのねじ込みも浅くなる。
+    hub -= Pos(0, 0, h - P.boss_relief_depth) * Cylinder(
+        P.boss_relief_dia / 2, P.boss_relief_depth + 0.01,
+        align=(Align.CENTER, Align.CENTER, Align.MIN),
+    )
     return hub
 
 

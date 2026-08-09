@@ -81,6 +81,24 @@ def test_hub_seats_inside_wheel_pocket():
     )
 
 
+def test_hub_relief_clears_center_boss():
+    """ハブ中央の逃げ座ぐりが、ホイール中央突起を余裕をもって収めること。
+
+    座ぐりが浅い・小さいとハブが突起に乗り、ウェブ面まで密着しない（実機で発生した不具合）。
+    座ぐりを大きくしすぎると M2 ネジ頭の座が消えるので、その上限も確認する。
+    """
+    assert P.boss_relief_dia > tamiya_wheel.CENTER_BOSS_DIA, "逃げ座ぐりが突起より細く、乗り上げる"
+    assert P.boss_relief_depth > tamiya_wheel.CENTER_BOSS_H, "逃げ座ぐりが浅く、突起頂が底に当たる"
+
+    # M2 頭の外縁より座ぐり半径が小さいこと（頭を受ける座が残る）
+    m2 = SCREWS[P.horn_screw]
+    head_outer_r = P.horn_pcd / 2 + m2.head_dia / 2
+    assert P.boss_relief_dia / 2 < head_outer_r, (
+        f"逃げ座ぐり半径 {P.boss_relief_dia/2:.2f} が M2 頭の外縁 {head_outer_r:.2f} を超え、"
+        "ネジ頭の座が消える"
+    )
+
+
 def test_wheel_flange_clears_servo_case():
     """ホイールのフランジ端面がホーン当たり面より下に来ないこと。
 

@@ -52,14 +52,20 @@ BOLT_PCD = 20.0          # ハブ取付穴のピッチ円直径（図面 10mm �
 BOLT_COUNT = 3
 BOLT_HOLE_DIA = 3.4      # ウェブ側は 3mm ビスのバカ穴（貫通）
 
-# 実測値（2026-07-19、ユーザーがノギスで実測）[mm]
+# 実測値（2026-07-19 / 08-09、ユーザーがノギスで実測）[mm]
 # 図面に数値が無いため実測で確定した。タイヤ幅 16 に対しホイール幅は 11 で、
 # タイヤが両側に 2.5 ずつはみ出す。ポケット径 38 はフランジ肉厚 (42-38)/2 = 2.0 に相当。
 WHEEL_WIDTH = 11.0       # 樹脂ホイールの幅（タイヤ幅 16 とは別物）
 WEB_THICKNESS = 2.0      # ウェブ板厚。ビスがここを貫通する
 POCKET_DIA = 38.0        # ポケット径（フランジ内側）
-CENTER_BORE_DIA = 8.5    # ウェブ中央の穴。純正はここにハブのボスが嵌る
+CENTER_BORE_DIA = 8.5    # ウェブ中央の穴
 PIN_HOLE_DIA = 1.5       # 位置決めピン穴
+
+# ウェブ中央、中心穴のまわりに立ち上がった円状の突起（両面にある）。
+# 純正ハブ B1/B2 はここを避ける座ぐりを持つ。変換ハブ側にも逃げ座ぐりが要る。
+# 半径 5.5 は M2 穴 PCD12（半径 6.0）の内側なので、逃げ座ぐりは M2 頭の座に軽くかかる。
+CENTER_BOSS_DIA = 11.0   # 突起の外径（2026-08-09 実測）
+CENTER_BOSS_H = 2.0      # 突起がウェブ面（ポケット床）から出ている高さ（2026-08-09 実測）
 
 # 未確定（provisional・実測待ち）
 PIN_COUNT = 3
@@ -101,7 +107,9 @@ def body(*, inner_face_z: float = 0.0) -> Part:
       z0 .. z0+d              ハブ側ポケット（変換ハブが入る空間）
       z0+d .. z0+d+web        ウェブ（板）。ビス・ピン・中心ボアが通る
       z0+d+web .. z0+2d+web   反対側ポケット（ビスを差し込む側）
-    外周はフランジ外径 42、その外にタイヤ（外径 58）が嵌る。
+    ウェブ面（ポケット床）の中心穴まわりには、両面とも円状の突起がポケットへ
+    張り出す（CENTER_BOSS_DIA × CENTER_BOSS_H）。外周はフランジ外径 42、
+    その外にタイヤ（外径 58）が嵌る。
     """
     p = TamiyaWheel()
     z0 = inner_face_z
@@ -118,7 +126,17 @@ def body(*, inner_face_z: float = 0.0) -> Part:
             POCKET_DIA / 2, d, align=(Align.CENTER, Align.CENTER, Align.MIN)
         )
 
-    # 中心ボア（貫通）。純正ハブはここにボスを嵌めて芯出しする
+    # 中心穴まわりの円状突起（両面）。ウェブ面から CENTER_BOSS_H だけポケットへ張り出す。
+    # あとで中心ボアを貫通させると外径 CENTER_BOSS_DIA / 内径 CENTER_BORE_DIA の輪になる。
+    # ハブ側にこれを避ける逃げ座ぐりが無いと、ハブがこの突起に乗って密着しない。
+    wheel += Pos(0, 0, z0 + d - CENTER_BOSS_H) * Cylinder(
+        CENTER_BOSS_DIA / 2, CENTER_BOSS_H, align=(Align.CENTER, Align.CENTER, Align.MIN)
+    )
+    wheel += Pos(0, 0, z0 + d + WEB_THICKNESS) * Cylinder(
+        CENTER_BOSS_DIA / 2, CENTER_BOSS_H, align=(Align.CENTER, Align.CENTER, Align.MIN)
+    )
+
+    # 中心ボア（貫通）。突起も貫いて輪にする
     wheel -= Pos(0, 0, z0) * Cylinder(
         CENTER_BORE_DIA / 2, WHEEL_WIDTH, align=(Align.CENTER, Align.CENTER, Align.MIN)
     )
