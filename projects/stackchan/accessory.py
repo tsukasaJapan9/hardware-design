@@ -1,8 +1,8 @@
-"""スタックチャンの頭 側面グリル（丸穴 3 つ）にはめ込むアクセサリー。
+"""スタックチャンの頭 側面グリル（丸穴 3 つ）にはめ込む犬の垂れ耳アクセサリー。
 
-頭（MainBody）の +X 側面にある 3 つの丸穴（スピーカーグリルの「O」）へ、ペグで
-差し込んで固定する取り付け土台（ベースプレート＋3 ペグ）。この土台の外側に
-実際のアクセサリー形状を足していく前提。
+頭（MainBody）の両側面グリルにある丸穴 3 つへペグで差し込んで固定する。
+取り付け板と耳は同一形状 ―― 犬の垂れ耳ローブの輪郭をそのまま板（厚み ear_th）として
+使い、その裏面（頭側）に 3 本のペグを立てる。左右は YZ 面のミラー。
 
 穴の実測（model の頭を原点中心に置いた座標系。pyvista で STL を断面計測）:
   - 中心 Y = -11.6 / -3.6 / +4.4（ピッチ 8.0）、Z = 17.0
@@ -18,11 +18,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from build123d import (
-    Align, Axis, Box, Cylinder, Part, Plane, Polygon, Pos, Rot,
-    extrude, fillet, mirror,
+    Align, Axis, Cylinder, Part, Plane, Polygon, Pos, Rot, extrude, fillet, mirror,
 )
 
-from projects.stackchan.model import STL_DIR, load_part, place
+from projects.stackchan.model import load_part, place
 
 HERE = Path(__file__).parent
 OUT = HERE / "out"
@@ -42,33 +41,20 @@ class Params:
     peg_len: float = 5.0        # 差し込み長（穴深さ 6 に対し 1 残す）
     peg_leadin: float = 0.6     # 先端の面取り（入りやすく）
 
-    # ベースプレート（+X 面に密着し、外側へ出る土台）
-    plate_th: float = 2.5       # 板厚（X 方向）
-    plate_margin_y: float = 4.5 # 穴列の外側マージン
-    plate_h: float = 13.0       # Z 方向の高さ
-    plate_r: float = 2.0        # 角丸
-
-    # 耳（犬の垂れ耳）。ペグ位置から下へ丸く垂れ下がるローブ。Y-Z 断面 × X 厚み
-    ear_th: float = 6.0         # 耳の厚み（X 方向、外側へ）
+    # 耳＝取り付け板（同一形状）。犬の垂れ耳ローブを Y-Z 断面に作り X へ厚みぶん出す。
+    # 付け根（上）は 3 ペグ列（Y=-11.6..4.4, Z=17）を覆う幅。そこから下へ丸く垂れる。
+    ear_th: float = 6.0         # 板厚＝耳厚（X 方向、外側へ）
     ear_top_z: float = 24.0     # 付け根（上端）Z
     ear_tip_z: float = -14.0    # 耳先（下端）Z ＝ 垂れる先
     ear_tip_y: float = -6.0     # 耳先の Y（やや前傾）
-    ear_back_y: float = 8.0     # 付け根の後側 Y
-    ear_front_y: float = -14.0  # 付け根の前側 Y
-    ear_r: float = 6.0          # 耳の角丸（垂れ耳の丸み）
+    ear_top_y0: float = -15.0   # 付け根の前(-Y)端（ペグ列 -11.6 を覆う）
+    ear_top_y1: float = 8.0     # 付け根の後(+Y)端（ペグ列 +4.4 を覆う）
+    ear_mid_bulge: float = 1.0  # 中ほどの膨らみ
+    ear_r: float = 6.0          # 角丸（垂れ耳の丸み）
 
     @property
     def peg_dia(self) -> float:
         return self.bore_dia - 2 * self.peg_clear
-
-    @property
-    def plate_cy(self) -> float:
-        return sum(self.hole_y) / len(self.hole_y)
-
-    @property
-    def plate_w(self) -> float:
-        span = max(self.hole_y) - min(self.hole_y)
-        return span + 2 * self.plate_margin_y
 
 
 P = Params()
@@ -79,41 +65,32 @@ def _peg(radius: float, length: float, x_start: float, y: float, z: float, leadi
     peg = Pos(x_start, y, z) * Rot(0, 90, 0) * Cylinder(
         radius, length, align=(Align.CENTER, Align.CENTER, Align.MIN)
     )
-    # 先端（x_start 側）の面取り
-    tip = peg.faces().sort_by(Axis.X)[0].edges()
-    peg = fillet(tip, radius=min(leadin, radius - 0.4))
-    return peg
+    tip = peg.faces().sort_by(Axis.X)[0].edges()   # 先端(-X)の縁
+    return fillet(tip, radius=min(leadin, radius - 0.4))
 
 
-def _ear() -> Part:
-    """犬の垂れ耳。付け根（上）から下へ丸く垂れるローブ断面を Y-Z 面に作り、+X へ押し出す。"""
+def _ear_lobe() -> Part:
+    """犬の垂れ耳ローブ（＝取り付け板）。付け根（上）から下へ丸く垂れる断面を +X へ押し出す。"""
     p = P
     mid_z = (p.ear_top_z + p.ear_tip_z) / 2
     prof = Polygon(
-        (p.ear_front_y, p.ear_top_z),      # 付け根・前
-        (p.ear_back_y, p.ear_top_z),       # 付け根・後
-        (p.ear_back_y + 1, mid_z),         # 中ほど・後（少し膨らむ）
-        (p.ear_tip_y, p.ear_tip_z),        # 耳先（下端）
-        (p.ear_front_y + 1, mid_z),        # 中ほど・前
+        (p.ear_top_y0, p.ear_top_z),               # 付け根・前
+        (p.ear_top_y1, p.ear_top_z),               # 付け根・後
+        (p.ear_top_y1 + p.ear_mid_bulge, mid_z),   # 中ほど・後
+        (p.ear_tip_y, p.ear_tip_z),                # 耳先（下端）
+        (p.ear_top_y0 - p.ear_mid_bulge, mid_z),   # 中ほど・前
         align=None,
     )
     prof = fillet(prof.vertices(), radius=p.ear_r)
-    ear = extrude(Plane.YZ * prof, amount=p.ear_th)
+    lobe = extrude(Plane.YZ * prof, amount=p.ear_th)
     # 押し出し方向に依らず、内面を +X 面(face_x)に合わせて外側へ出す
-    return Pos(p.face_x - ear.bounding_box().min.X, 0, 0) * ear
+    return Pos(p.face_x - lobe.bounding_box().min.X, 0, 0) * lobe
 
 
 def build_ear_right() -> Part:
-    """+X 側の耳（ベースプレート＋3 ペグ＋耳）。頭中心座標。"""
+    """+X 側の耳（耳ローブ＝取り付け板 ＋ 3 ペグ）。頭中心座標。"""
     p = P
-    # プレート: +X 面(face_x)に内面を密着させ、外側(+X)へ plate_th 出す
-    plate = Pos(p.face_x + p.plate_th / 2, p.plate_cy, p.hole_z) * Box(
-        p.plate_th, p.plate_w, p.plate_h
-    )
-    plate = fillet(plate.edges().filter_by(Axis.X), radius=p.plate_r)
-
-    acc = plate + _ear()
-    # ペグ: 面(face_x)から内側(-X)へ peg_len 差し込む
+    acc = _ear_lobe()
     for y in p.hole_y:
         acc += _peg(p.peg_dia / 2, p.peg_len, p.face_x - p.peg_len, y, p.hole_z, p.peg_leadin)
     return acc
