@@ -48,14 +48,14 @@ class Params:
     plate_h: float = 13.0       # Z 方向の高さ
     plate_r: float = 2.0        # 角丸
 
-    # 耳（飾り）。プレートの外側に立てる。Y-Z 断面の丸みのある三角、X 方向へ厚み
+    # 耳（犬の垂れ耳）。ペグ位置から下へ丸く垂れ下がるローブ。Y-Z 断面 × X 厚み
     ear_th: float = 6.0         # 耳の厚み（X 方向、外側へ）
-    ear_base_z: float = 12.0    # 耳の付け根 Z
-    ear_tip_z: float = 43.0     # 耳先 Z（頭頂 27 より上へ）
-    ear_base_y0: float = -15.0  # 付け根の Y 範囲
-    ear_base_y1: float = 8.0
-    ear_tip_y: float = -3.0     # 耳先の Y
-    ear_r: float = 4.0          # 耳の角丸
+    ear_top_z: float = 24.0     # 付け根（上端）Z
+    ear_tip_z: float = -14.0    # 耳先（下端）Z ＝ 垂れる先
+    ear_tip_y: float = -6.0     # 耳先の Y（やや前傾）
+    ear_back_y: float = 8.0     # 付け根の後側 Y
+    ear_front_y: float = -14.0  # 付け根の前側 Y
+    ear_r: float = 6.0          # 耳の角丸（垂れ耳の丸み）
 
     @property
     def peg_dia(self) -> float:
@@ -86,17 +86,21 @@ def _peg(radius: float, length: float, x_start: float, y: float, z: float, leadi
 
 
 def _ear() -> Part:
-    """耳（飾り）。丸みのある三角の断面を Y-Z 面に作り、+X へ厚みぶん押し出す。"""
+    """犬の垂れ耳。付け根（上）から下へ丸く垂れるローブ断面を Y-Z 面に作り、+X へ押し出す。"""
     p = P
+    mid_z = (p.ear_top_z + p.ear_tip_z) / 2
     prof = Polygon(
-        (p.ear_base_y0, p.ear_base_z),
-        (p.ear_base_y1, p.ear_base_z),
-        (p.ear_tip_y, p.ear_tip_z),
+        (p.ear_front_y, p.ear_top_z),      # 付け根・前
+        (p.ear_back_y, p.ear_top_z),       # 付け根・後
+        (p.ear_back_y + 1, mid_z),         # 中ほど・後（少し膨らむ）
+        (p.ear_tip_y, p.ear_tip_z),        # 耳先（下端）
+        (p.ear_front_y + 1, mid_z),        # 中ほど・前
         align=None,
     )
     prof = fillet(prof.vertices(), radius=p.ear_r)
-    ear = extrude(Plane.YZ * prof, amount=p.ear_th)   # 法線 = +X
-    return Pos(p.face_x, 0, 0) * ear
+    ear = extrude(Plane.YZ * prof, amount=p.ear_th)
+    # 押し出し方向に依らず、内面を +X 面(face_x)に合わせて外側へ出す
+    return Pos(p.face_x - ear.bounding_box().min.X, 0, 0) * ear
 
 
 def build_ear_right() -> Part:
