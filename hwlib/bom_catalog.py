@@ -416,10 +416,12 @@ body {
   line-height: 1.7; font-size: 15px;
 }
 main { max-width: 1080px; margin: 0 auto; }
-h1 { font-size: 1.7rem; margin: 40px 0 6px; letter-spacing: .02em; }
-h2 { font-size: 1.2rem; margin: 0 0 10px; }
-h3 { font-size: 1rem; margin: 0 0 6px; }
+h1 { font-size: 1.7rem; margin: 40px 0 6px; letter-spacing: .02em; text-wrap: balance; }
+h2 { font-size: 1.2rem; margin: 0 0 10px; text-wrap: balance; }
+h3 { font-size: 1rem; margin: 0 0 6px; text-wrap: balance; }
 a { color: var(--accent); }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px;
+  border-radius: 2px; }
 code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .88em; }
 .lead { color: var(--muted); margin: 0 0 28px; }
 .muted { color: var(--muted); font-weight: normal; }
@@ -452,7 +454,8 @@ table { border-collapse: collapse; width: 100%; }
 .spec table th { text-align: left; vertical-align: top; white-space: nowrap;
   color: var(--muted); font-weight: 600; font-size: .84rem; padding: 5px 12px 5px 0; }
 .spec table td { vertical-align: top; font-size: .88rem; padding: 5px 0;
-  border-bottom: 1px solid var(--line); word-break: break-word; }
+  border-bottom: 1px solid var(--line); word-break: break-word;
+  font-variant-numeric: tabular-nums; }
 .spec table tr:last-child td { border-bottom: none; }
 .note { font-size: .85rem; color: var(--muted); margin: 12px 0 0;
   border-left: 2px solid var(--line); padding-left: 10px; white-space: pre-line; }
