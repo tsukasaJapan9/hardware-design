@@ -27,6 +27,8 @@ hwlib/
   features.py   タッピングボス、バカ穴、コネクタ開口
   render.py     目視確認用の PNG 生成、ocp_vscode への送信
   catalog.py    調査済み部品の寸法
+  drawing.py    三面図（第三角法）の SVG 生成
+  bom_catalog.py  全 BOM を三面図つき HTML カタログにまとめる
 projects/       設計プロジェクト（1 案件 1 ディレクトリ）
 tests/          hwlib 自体のテスト
 ```
@@ -42,6 +44,22 @@ uv run python -m projects.example_camera_case.model --export   # STL / STEP を�
 ```
 
 `--show` には VSCode の OCP CAD Viewer 拡張が必要。
+
+## BOM カタログ
+
+```bash
+uv run python -m hwlib.bom_catalog     # out/bom_catalog.html
+```
+
+`projects/*/bom.yaml` の全部品を、三面図（第三角法）と仕様の一覧にした HTML を出す。
+図は BOM の値から作った形状を build123d で投影したもので、手描きではないため
+形状と図がずれない。図の出所は部品ごとに 3 種類あり、カードに明示する。
+
+- **実形状** — `hwlib.parts` に実形状モデルがある部品（図面・実測に基づく）
+- **外形近似** — BOM の `size` から作った直方体。取付穴が分かっていれば穴も開ける
+- **略図** — 締結部品。呼び径と首下長さのみ
+
+`--fragment` を付けると `<style>` と `<main>` だけを出力する（Artifact などに貼る用）。
 
 ## リファレンス実装
 
