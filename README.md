@@ -67,7 +67,7 @@ uv run python -m projects.example_camera_case.model --export   # STL / STEP を�
 ## BOM カタログ
 
 ```bash
-uv run python -m hwlib.bom_catalog     # out/bom_catalog.html
+uv run python -m hwlib.bom_catalog     # docs/bom_catalog.html
 ```
 
 部品ライブラリと `projects/*/bom.yaml` を、三面図（第三角法）と仕様の一覧にした HTML を出す。
@@ -82,6 +82,10 @@ uv run python -m hwlib.bom_catalog     # out/bom_catalog.html
 - **略図** — 締結部品。呼び径と首下長さのみ
 
 `--fragment` を付けると `<style>` と `<main>` だけを出力する（Artifact などに貼る用）。
+
+生成物だが `docs/bom_catalog.html` はリポジトリに含める。部品を変えたときの差分を
+レビューで追えるようにするため。**部品や BOM を変えたら作り直してコミットする。**
+（`out/` は STL・確認用 PNG と同じ捨ててよい生成物の置き場で、`.gitignore` 対象）
 
 ## リファレンス実装
 

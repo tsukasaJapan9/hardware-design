@@ -158,7 +158,7 @@ excluded:                         # 不要と判断したカテゴリと、そ�
 共有部品は図つきで 1 回だけ載り、使用プロジェクトがリンクで並ぶ。
 
 ```bash
-uv run python -m hwlib.bom_catalog                 # out/bom_catalog.html
+uv run python -m hwlib.bom_catalog                 # docs/bom_catalog.html
 uv run python -m hwlib.bom_catalog --fragment      # <style> と <main> だけ（Artifact 用）
 ```
 
@@ -170,12 +170,15 @@ HTML は Read では絵にならないので、ヘッドレスブラウザでス
 
 ```bash
 google-chrome --headless --disable-gpu --hide-scrollbars \
-  --window-size=1150,3000 --screenshot=<スクラッチ>/catalog.png out/bom_catalog.html
+  --window-size=1150,3000 --screenshot=<スクラッチ>/catalog.png docs/bom_catalog.html
 ```
 
 生成対象は `parts/*.yaml` と `projects/*/bom.yaml` の全部なので、新しい部品もプロジェクトも
 置くだけで載る。一覧に手で追記する場所はない。載らない場合は `load_bom()` が通っていない
 ということなので、まず `bom.yaml` の不備を直す。
+
+**`docs/bom_catalog.html` はリポジトリに含める（`.gitignore` 対象の `out/` ではない）。**
+部品を変えたときの差分をレビューで追えるようにするため、生成し直したらコミットする。
 
 `uv run pytest` の `tests/test_bom_catalog.py` と `tests/test_library.py` が、全部品ぶんの
 カードが生成されること・ライブラリが全部読めることを確認する。テストが落ちたら不備がある。

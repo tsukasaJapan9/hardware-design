@@ -94,7 +94,7 @@ components:
 HTML カタログを作り直す。** BOM を書いて終わりにしない。
 
 ```bash
-uv run python -m hwlib.bom_catalog     # out/bom_catalog.html
+uv run python -m hwlib.bom_catalog     # docs/bom_catalog.html
 ```
 
 生成対象は `parts/*.yaml` と `projects/*/bom.yaml` の全部なので、**新しい部品もプロジェクトも
@@ -106,7 +106,7 @@ uv run python -m hwlib.bom_catalog     # out/bom_catalog.html
 
   ```bash
   google-chrome --headless --disable-gpu --hide-scrollbars \
-    --window-size=1150,3000 --screenshot=<スクラッチ>/catalog.png out/bom_catalog.html
+    --window-size=1150,3000 --screenshot=<スクラッチ>/catalog.png docs/bom_catalog.html
   ```
 
 - 実形状モデル（`parts/*.py`）を作ったら、部品ファイルの `shape:` に書く。

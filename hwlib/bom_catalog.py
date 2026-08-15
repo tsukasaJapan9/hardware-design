@@ -15,8 +15,11 @@
   略図       締結部品。呼び径と首下長さだけを図示する
 
 使い方:
-    uv run python -m hwlib.bom_catalog              # out/bom_catalog.html に出力
+    uv run python -m hwlib.bom_catalog              # docs/bom_catalog.html に出力
     uv run python -m hwlib.bom_catalog --fragment   # body 断片のみ（Artifact 用）
+
+出力先が out/ ではなく docs/ なのは、生成物だがリポジトリに残して差分を追うため。
+out/ は STL や確認用 PNG と同じ「捨ててよい生成物」の置き場で .gitignore 対象。
 """
 
 from __future__ import annotations
@@ -35,7 +38,7 @@ from hwlib.library import all_parts, load_shape
 
 ROOT = Path(__file__).resolve().parent.parent
 PROJECTS_DIR = ROOT / "projects"
-DEFAULT_OUT = ROOT / "out" / "bom_catalog.html"
+DEFAULT_OUT = ROOT / "docs" / "bom_catalog.html"
 
 # 寸法の信頼度。ラベル、意味、強調の種別。
 CONFIDENCE: dict[str, tuple[str, str, str]] = {
