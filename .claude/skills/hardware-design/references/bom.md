@@ -33,7 +33,7 @@
 「出典 URL・取得日・その図面から読み取れる寸法」を追記する。**
 
 URL はリンク切れするため、現物が無いと後から寸法の根拠を検証できなくなる。
-部品モデル（`hwlib/parts/*.py`）の docstring からも、このローカルパスを参照させる。
+部品モデル（`parts/*.py`）の docstring からも、このローカルパスを参照させる。
 
 なお公式 CAD/図面のサイトには、実行環境から到達できないものがある
 （例: robotis.com）。その場合はユーザーにブラウザでの取得を依頼する。
@@ -48,50 +48,90 @@ URL はリンク切れするため、現物が無いと後から寸法の根拠�
 
 受け取った値は `confidence: measured` とし、いつ何を測ったかを `note` に残す。
 
-## bom.yaml の書式
+## 部品ライブラリ（`parts/`）と `bom.yaml` の分担
+
+部品はプロジェクトの外に置き、複数のプロジェクトから使い回す。
+
+| 置き場 | 持つもの | 例 |
+|---|---|---|
+| `parts/<id>.yaml` | 部品の性質。**寸法の出所はここだけ** | 外形、取付穴、コネクタ、出典、信頼度 |
+| `parts/<module>.py` | 実形状モデル（任意） | 軸原点・ホーン穴を持つ XL330 |
+| `projects/<name>/bom.yaml` | その部品を**どう使うか** | 固定方法、クリアランス、CAD に配置するか |
+
+**同じ部品の寸法を 2 か所に書かない。** プロジェクト側に `size` などを書くとエラーになる。
+
+### `parts/<部品 id>.yaml`
+
+ファイル名と `id` を一致させる。書けるのは次の項目だけで、他を書くとエラー。
+
+```yaml
+id: raspberry_pi_zero_2w         # ファイル名と一致させる
+name: Raspberry Pi Zero 2 W
+category: board                  # 既定のカテゴリ（プロジェクトで上書き可）
+size: [65.0, 30.0, 5.0]          # 幅 X, 奥行き Y, 高さ Z (mm)
+mount_holes:                     # 部品原点（最小コーナー）からの穴中心
+  [[3.5, 3.5], [61.5, 3.5], [3.5, 26.5], [61.5, 26.5]]
+hole_dia: 2.75
+connectors:                      # 外装に開口が必要なもの
+  - name: micro_usb_power
+    pos: [54.0, 0.0, 2.5]        # 部品ローカル座標でのコネクタ中心
+    size: [8.0, 3.0]             # 開口の幅・高さ
+    face: "-y"                   # 外向き方向
+    depth: 15.0                  # ケーブル挿抜に必要な外側の空間
+confidence: datasheet            # datasheet | measured | user_provided | provisional
+source: https://...              # datasheet なら必須
+datasheet: datasheets/rpi/zero2w.pdf   # 保存した図面の実体（任意）
+shape: parts.xl330:body          # 実形状モデル（任意）"<module>:<関数>"
+note: 高さ 5.0 は実装部品込みの概算
+```
+
+必須項目:
+
+- `size` — 3 つとも正の値。1 つでも欠けると設計に進めない
+- `confidence` — `datasheet` / `measured` / `user_provided` / `provisional` のいずれか
+- `source` — `confidence: datasheet` のときは必須
+
+### `projects/<name>/bom.yaml`
 
 ```yaml
 project: my_case
 
 components:
-  - id: pi_zero                    # コード内で参照する識別子
-    name: Raspberry Pi Zero 2 W
-    category: board
-    size: [65.0, 30.0, 5.0]        # 幅 X, 奥行き Y, 高さ Z (mm)
-    mount_holes:                    # 部品原点（最小コーナー）からの穴中心
-      [[3.5, 3.5], [61.5, 3.5], [3.5, 26.5], [61.5, 26.5]]
-    hole_dia: 2.75
-    connectors:                     # 外装に開口が必要なもの
-      - name: micro_usb_power
-        pos: [54.0, 0.0, 2.5]       # 部品ローカル座標でのコネクタ中心
-        size: [8.0, 3.0]            # 開口の幅・高さ
-        face: "-y"                  # 外向き方向
-        depth: 15.0                 # ケーブル挿抜に必要な外側の空間
-    clearance: 2.0                  # 周囲に確保する余裕
-    retention: M2.6 タッピングネジ x4  # 何で固定するか（必須）
-    confidence: datasheet           # datasheet | measured | user_provided
-    source: https://...             # datasheet なら必須
-    note: 高さ 5.0 は実装部品込みの概算
+  - use: raspberry_pi_zero_2w    # parts/raspberry_pi_zero_2w.yaml を参照
+    id: pi_zero                  # コード内で引く名前（省略時は use と同じ）
+    category: board              # 既定を変えたいときだけ書く
+    clearance: 2.0               # 周囲に確保する余裕
+    retention: M2.6 タッピングネジ x4   # 何で固定するか（必須）
+    note: micro USB は -Y 面から挿す     # 設計上の判断（ライブラリの note に追記される）
 
-  - id: screws_lid
-    name: タッピングネジ M3 x 10（4 本）
-    category: fastener
-    size: [3.0, 3.0, 10.0]
-    confidence: user_provided
-    geometric: false                # CAD に配置しない部品（ネジ、ケーブル本体）
-    note: 樹脂直締め
+  - use: screw_m3x10_tapping
+    id: screws_lid
+    geometric: false             # CAD に配置しない部品（ネジ、ケーブル本体）
+    note: 蓋固定に 4 本。ボスの下穴 φ2.4、ねじ込み深さ 7.5 mm
 
-excluded:                            # 不要と判断したカテゴリと、その理由
+excluded:                         # 不要と判断したカテゴリと、その理由
   actuator: 可動部を持たない
   display_ui: 表示・操作系はなし
   thermal: 発熱が小さく通気口は設けない
 ```
 
-### 必須項目
+書けるのは `use` / `id` / `category` / `retention` / `clearance` / `geometric` / `note` の
+7 つだけ。寸法系（`size` / `mount_holes` / `hole_dia` / `connectors` / `confidence` /
+`source` / `datasheet` / `shape`）を書くとエラーになる。
 
-- `size` — 3 つとも正の値。1 つでも欠けると設計に進めない
-- `confidence` — `datasheet` / `measured` / `user_provided` / `provisional` のいずれか
-- `source` — `confidence: datasheet` のときは必須
+### 部品をライブラリに追加する手順
+
+1. `parts/<部品 id>.yaml` を作る。id は「メーカー_型番」を基本にする
+   （`dynamixel_xl330`、`tamiya_narrow_tire_70145`）。規格品のネジは仕様で
+   （`screw_m3x10_tapping`）
+2. 寸法の出所を `confidence` と `source` で示す。図面 PDF は `datasheets/` に保存し、
+   `datasheet:` にパスを書く
+3. 実形状が要るなら `parts/<module>.py` を書き、`shape:` で結ぶ
+4. プロジェクトの `bom.yaml` から `use:` で参照する
+5. HTML カタログを作り直して図を確認する
+
+**すでに似た部品がライブラリにあるなら、新規登録の前にそれで足りないかを見る。**
+使い方が違うだけなら同じ部品を参照し、`retention` や `clearance` で違いを吸収する。
 
 ### provisional（暫定値）
 
@@ -111,7 +151,56 @@ excluded:                            # 不要と判断したカテゴリと、�
 `assert_all_parts_placed()` の対象外になる。
 ただし**配線が占める空間を確保したい場合は `geometric: true` にして体積を持たせる。**
 
-## カタログ
+## BOM カタログ（HTML）
 
-一度調べた部品は `hwlib/catalog.py` に登録し、次回以降の調査を省く。
-登録時も出典 URL は必須。裏が取れない項目は登録しない。
+部品ライブラリ（`parts/`）と `projects/*/bom.yaml` を、三面図（第三角法）と仕様の
+一覧にした HTML。部品を型番・寸法・固定方法・出典まで含めて一度に見るためのもの。
+共有部品は図つきで 1 回だけ載り、使用プロジェクトがリンクで並ぶ。
+
+```bash
+uv run python -m hwlib.bom_catalog                 # docs/bom_catalog.html
+uv run python -m hwlib.bom_catalog --fragment      # <style> と <main> だけ（Artifact 用）
+```
+
+### ルール: BOM を作った・変えたら作り直す
+
+**`parts/*.yaml` や `bom.yaml` を新規に作ったとき、部品を足したとき、寸法・出典・
+retention を変えたときは、カタログを生成し直し、図を目で確認する。**
+HTML は Read では絵にならないので、ヘッドレスブラウザでスクリーンショットにしてから Read する。
+
+```bash
+google-chrome --headless --disable-gpu --hide-scrollbars \
+  --window-size=1150,3000 --screenshot=<スクラッチ>/catalog.png docs/bom_catalog.html
+```
+
+生成対象は `parts/*.yaml` と `projects/*/bom.yaml` の全部なので、新しい部品もプロジェクトも
+置くだけで載る。一覧に手で追記する場所はない。載らない場合は `load_bom()` が通っていない
+ということなので、まず `bom.yaml` の不備を直す。
+
+**`docs/bom_catalog.html` はリポジトリに含める（`.gitignore` 対象の `out/` ではない）。**
+部品を変えたときの差分をレビューで追えるようにするため、生成し直したらコミットする。
+
+`uv run pytest` の `tests/test_bom_catalog.py` と `tests/test_library.py` が、全部品ぶんの
+カードが生成されること・ライブラリが全部読めることを確認する。テストが落ちたら不備がある。
+
+### 図の出所は 3 種類
+
+| 種別 | 何を描くか | いつ |
+|---|---|---|
+| 実形状 | 実際の形（図面・実測に基づくソリッドの投影） | 部品ファイルに `shape:` がある |
+| 外形近似 | `size` の直方体。`mount_holes` があれば穴も開ける | 既定 |
+| 略図 | 呼び径と首下長さのみ | `category: fastener` |
+
+図は build123d の `project_to_viewport()` で実際のソリッドを投影して作る。手描きの
+近似ではないので、図と CAD の形状はずれない。見える稜線は実線、隠れた稜線は破線。
+
+**実形状モデルを作ったら部品ファイルの `shape:` に書く。** 書かないと直方体近似のまま
+描かれる。実形状の外形が `size` と食い違う場合（突起を含むなど）は、カタログが
+「図上の外形」として両方を出す。
+
+### カタログが拾う不備
+
+- **コネクタ開口が面に収まらない部品** — 面の指定と開口寸法の食い違い。図には枠を描かず
+  位置だけ示し、仕様表に警告を出す
+- **`confidence: provisional` の部品** — 冒頭に一覧で出る。印刷・発注の前に実測して確定する
+- **どのプロジェクトからも使われていない部品** — 一覧の「使用プロジェクト」が空になる

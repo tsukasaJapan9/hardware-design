@@ -26,7 +26,7 @@ from build123d import Align, Cone, Cylinder, Part, Pos
 
 from hwlib.bom import load_bom
 from hwlib.features import SCREWS
-from hwlib.parts import tamiya_wheel, xl330
+from parts import tamiya_wheel, xl330
 
 HERE = Path(__file__).parent
 BOM = load_bom(HERE / "bom.yaml")
@@ -48,7 +48,7 @@ class Params:
     # --- XL330 側: 公式図面 X330 で確定 ---
     horn_pcd: float = 12.0       # ホーン穴 P.C.D φ12（4xφ1.6, 90度等配）
 
-    # --- XL330 側: 暫定（実測待ち。hwlib.parts.xl330 が出所） ---
+    # --- XL330 側: 暫定（実測待ち。parts.xl330 が出所） ---
     horn_boss_dia: float = xl330.HORN_BOSS_DIA
     horn_boss_h: float = xl330.HORN_BOSS_H
 
@@ -56,7 +56,7 @@ class Params:
     wheel_bolt_pcd: float = tamiya_wheel.BOLT_PCD  # 3穴 PCD20（図面 10mm 半径 x2）
     rim_od: float = tamiya_wheel.RIM_OD            # ホイールディスク外径 42
 
-    # --- タミヤ側: 実測で確定（2026-07-19。hwlib.parts.tamiya_wheel が出所） ---
+    # --- タミヤ側: 実測で確定（2026-07-19。parts.tamiya_wheel が出所） ---
     # ビスが貫通するウェブの板厚。ねじ込み深さ = ビス長 - この厚み
     wheel_boss_wall: float = tamiya_wheel.WEB_THICKNESS
     wheel_recess_dia: float = tamiya_wheel.POCKET_DIA

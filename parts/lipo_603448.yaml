@@ -1,0 +1,12 @@
+id: lipo_603448
+name: LiPo バッテリー 603448 相当
+category: power
+
+size: [50.0, 34.0, 5.0]
+mount_holes: []
+hole_dia: 0.0
+
+confidence: user_provided
+note: >
+  サンプル用の想定値。実際に使うセルの寸法は個体差があるため実測すること。
+  リチウムポリマーは経年で膨らむため、クリアランスは 2 mm 程度を見込む。

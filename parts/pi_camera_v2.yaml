@@ -1,0 +1,17 @@
+id: pi_camera_v2
+name: Raspberry Pi Camera Module v2
+category: sensor
+
+# 基板 25 x 24 mm、レンズ突起を含む高さ 9 mm
+size: [25.0, 24.0, 9.0]
+# 取付穴のピッチは一次情報源で確認できなかったため登録しない。
+# ネジ止めする設計にするなら、実測してから mount_holes を追加すること。
+mount_holes: []
+hole_dia: 0.0
+
+confidence: datasheet
+source: https://www.raspberrypi.com/documentation/accessories/camera.html
+note: >
+  外形 25 x 24 mm、レンズ込み高さ 9 mm は確認済み。
+  取付穴の位置は一次情報源で確認できなかったため持たせていない（M2 ネジが入る
+  との記述のみ）。ネジ止めする設計に変える場合はノギスで実測すること。

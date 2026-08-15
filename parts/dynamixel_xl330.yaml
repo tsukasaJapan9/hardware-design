@@ -1,0 +1,21 @@
+id: dynamixel_xl330
+name: ROBOTIS DYNAMIXEL XL330-M077-T / M288-T
+category: actuator
+
+# 公式スペックのケース外形。M077 と M288 は同一ケース（W x H x D）
+size: [20.0, 34.0, 26.0]
+# ケース側面・背面の M2 セルフタッピング穴。出力ホーンの M2 パターンとは別。
+# 穴座標は公式図面を正とするため、ここには登録しない（外形値だけで設計しない）
+mount_holes: []
+hole_dia: 2.0
+
+confidence: datasheet
+source: https://emanual.robotis.com/docs/en/dxl/x/xl330-m288/
+datasheet: datasheets/xl330/XL_XC-330.pdf
+shape: parts.xl330:body
+note: >
+  M077(車輪)・M288(股膝)共通ケース、18g/個。公式図面 X330 より:
+  出力軸は W方向中央・H方向は上端から 9.5mm（箱の中央ではない）。
+  ホーン穴 = 4xφ1.6・P.C.D φ12・M2タッピング、ねじ込み深さ DP3.0 Max。
+  実形状は parts/xl330.py を使う（箱近似ではなく軸原点で扱う）。
+  実形状の高さはホーン突起を含む 29mm で、この size（ケース部 26mm）と異なる。

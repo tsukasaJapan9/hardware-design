@@ -1,0 +1,13 @@
+id: lipo_550mah
+name: LiPo バッテリー 550mAh
+category: power
+
+size: [40.0, 30.0, 6.0]
+mount_holes: []
+hole_dia: 0.0
+
+confidence: provisional
+note: >
+  550mAh は仕様確定。外形寸法は公式資料に無く仮値。
+  実物をノギスで実測して確定すること（印刷・発注の前に
+  verify.assert_no_provisional が止める）。

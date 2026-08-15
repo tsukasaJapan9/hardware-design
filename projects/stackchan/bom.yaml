@@ -1,88 +1,50 @@
 project: stackchan
 
 # M5Stack 版スタックチャンの外形シェル再現。内部部品は実寸モックで配置し、
-# 角丸の箱形シェルを画像の外形寸法（54 x 61.5 x 70.5）から近似する。
-# バッテリー外形は公式資料に無く provisional（実測待ち）。
+# 外形は公式 STL の取り込みで再現する（model.py）。
+# 部品は parts/ の部品ライブラリを use: で参照し、ここには使い方だけを書く。
 
 components:
-  - id: cores3
-    name: M5Stack CoreS3（顔）
-    category: board
-    size: [54.0, 54.0, 15.5]
+  - use: m5stack_cores3
+    id: cores3
     clearance: 0.5
     retention: 前面フレームで保持し、周囲をシェルで拘束（画面が前面に出る）
-    confidence: datasheet
-    source: https://docs.m5stack.com/en/core/CoreS3
-    connectors:
-      # 画面（前面に出す開口）。CoreS3 前面のほぼ全面が 2.0" タッチ画面
-      - name: screen
-        pos: [27.0, 0.0, 7.75]
-        size: [48.0, 48.0]
-        face: "-y"
-        depth: 0.0
-      # USB Type-C（充電・書き込み）。右側面下部（概略位置）
-      - name: usb_c
-        pos: [54.0, 27.0, 4.0]
-        size: [10.0, 5.0]
-        face: "+x"
-        depth: 12.0
     note: >
-      画面・カメラ・マイク・IMU・スピーカー・ボタンはこのモジュールに内蔵。
-      本設計では 1 つの board として扱う。取付穴位置は外形近似に不要なため未取得。
-      コネクタ位置は概略（外形シェルの開口確認用）。
+      顔として使う。画面・カメラ・マイク・IMU・スピーカー・ボタンはこのモジュールに
+      内蔵されるため、本設計では 1 つの board として扱う。
 
-  - id: servo_pan
-    name: Feetech SCS0009 サーボ（パン・水平回転）
-    category: actuator
-    size: [23.2, 12.1, 25.25]
+  - use: feetech_scs0009
+    id: servo_pan
     clearance: 1.0
     retention: 台座内にサーボブラケットで拘束し M2 タッピングで固定
-    confidence: datasheet
-    source: https://www.feetechrc.com/6v-23kg-serial-bus-steering-gear_65522.html
-    note: 20T スプライン OD3.95、線長 150mm。取付穴・軸位置は本設計時に図面/実測で確定
+    note: パン（水平回転）。取付穴・軸位置は台座の設計時に図面/実測で確定する
 
-  - id: servo_tilt
-    name: Feetech SCS0009 サーボ（チルト・首上下）
-    category: actuator
-    size: [23.2, 12.1, 25.25]
+  - use: feetech_scs0009
+    id: servo_tilt
     clearance: 1.0
     retention: 首フレームに M2 タッピングで固定
-    confidence: datasheet
-    source: https://www.feetechrc.com/6v-23kg-serial-bus-steering-gear_65522.html
-    note: パンと同一部品。姿勢のみ異なる
+    note: チルト（首上下）。パンと同一部品で姿勢のみ異なる
 
-  - id: battery
-    name: LiPo バッテリー 550mAh
-    category: power
-    size: [40.0, 30.0, 6.0]
+  - use: lipo_550mah
+    id: battery
     clearance: 1.5
     retention: 台座内のポケットに収め、両面テープまたは押さえで保持
-    confidence: provisional
-    note: 550mAh は仕様確定。外形寸法は公式資料に無く仮値。実物をノギスで実測して確定する
+    note: 台座内に寝かせて置く。寸法が暫定なのでポケットは実測後に確定する
 
-  - id: servo_cable
-    name: サーボ 1.25-4P ケーブル（配線空間）
-    category: wiring
-    size: [8.0, 8.0, 40.0]
+  - use: cable_jst_1_25_4p
+    id: servo_cable
     clearance: 0.0
+    geometric: false
     retention: 台座内を通す（結束は不要）
-    confidence: user_provided
-    geometric: false
-    note: 1.25-4P オス-メス延長 100mm を含む。台座内の配線取り回し空間として確保
+    note: サーボ 2 個ぶんの配線。台座内の取り回し空間として確保する
 
-  - id: screws_servo
-    name: M2 タッピングネジ（サーボ固定・ホーン）
-    category: fastener
-    size: [2.0, 2.0, 6.0]
-    confidence: user_provided
+  - use: screw_m2x6_tapping
+    id: screws_servo
     geometric: false
-    note: SCS0009 の固定・ホーン締結用（仕様の M2 六角レンチに対応）
+    note: サーボの固定・ホーン締結用（仕様の M2 六角レンチに対応）
 
-  - id: screws_shell
-    name: M3 タッピングネジ（シェル組立）
-    category: fastener
-    size: [3.0, 3.0, 10.0]
-    confidence: user_provided
+  - use: screw_m3x10_tapping
+    id: screws_shell
     geometric: false
     note: 前後シェル・台座の組立用（仕様の M3 六角レンチに対応）
 

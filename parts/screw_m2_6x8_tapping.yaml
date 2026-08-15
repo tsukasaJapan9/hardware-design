@@ -1,0 +1,13 @@
+id: screw_m2_6x8_tapping
+name: M2.6 × 8 タッピングネジ（樹脂直締め）
+category: fastener
+
+size: [2.6, 2.6, 8.0]
+mount_holes: []
+hole_dia: 0.0
+
+confidence: user_provided
+note: >
+  樹脂に直接ねじ込むタッピングネジ。下穴径・ボス外径・必要ねじ込み深さは
+  hwlib.features.SCREWS["M2.6"]（下穴 φ2.1、ボス外径 5.7、ねじ込み 5.2 以上）を使う。
+  基板の取付穴 φ2.75 に対する定番の呼び径。

@@ -37,12 +37,30 @@ build123d でハードウェアを設計する。目的は 2 つ。
 
 配線とコネクタの挿抜空間は忘れやすい。ケーブルが占める体積も部品として扱う。
 
+**部品はまず `parts/`（部品ライブラリ）を見る。** 既に調べてある部品はそこにあり、
+`bom.yaml` からは `use: <部品 id>` で参照する。同じ部品を複数のプロジェクトで使っても、
+寸法の出所は 1 か所に保たれる。
+
+```yaml
+components:
+  - use: dynamixel_xl330      # parts/dynamixel_xl330.yaml の寸法・出典を使う
+    id: xl330                 # このプロジェクトでの呼び名（省略時は use と同じ）
+    clearance: 1.0
+    retention: 脚フレームに M2 タッピング x4
+    note: 車輪サーボとして使う      # 設計上の判断はここに書く
+```
+
+**`bom.yaml` に書けるのは「どう使うか」だけ。** 寸法・取付穴・コネクタ・出典を
+プロジェクト側に書くとエラーになる。値を変えたいなら `parts/<id>.yaml` を直すか、
+別の部品として登録する。
+
 ## 段階 3: 寸法調査
 
-全部品の幅・奥行き・高さ（mm）とネジ穴位置を確定させる。
+`parts/` に無い部品は、ここで調べてライブラリに追加する。
+幅・奥行き・高さ（mm）とネジ穴位置を確定させる。
 
 1. 型番をもとに `WebSearch` / `WebFetch` でメーカーの機械図面・データシートを調べる
-2. 得た値を `source`（出典 URL）とともに `bom.yaml` に書く
+2. 得た値を `source`（出典 URL）とともに `parts/<部品 id>.yaml` に書く
 3. **ネットで確定できない場合は、推測せずユーザにノギスでの実測を依頼する。**
 
 **実測を依頼するときは、測る箇所を HTML の図（Artifact）で示す。** 文章だけで
@@ -62,6 +80,42 @@ build123d でハードウェアを設計する。目的は 2 つ。
 **推測値で設計を始めない。** 確認できなかった項目は書かない（例: 取付穴の位置が不明なら `mount_holes` を空にし、その旨を `note` に残す）。
 
 `bom.yaml` は `hwlib.bom.load_bom()` で読む。寸法・出典・固定方法・カテゴリの網羅性に不備があればエラーになり、段階 4 に進めない。
+
+### 部品ライブラリへの追加
+
+`parts/<部品 id>.yaml` を作る。ファイル名と `id` は一致させる。書けるのは部品の性質だけ
+（`name` / `category` / `size` / `mount_holes` / `hole_dia` / `connectors` / `confidence` /
+`source` / `datasheet` / `shape` / `note`）。実形状モデルがあるなら同じ `parts/` に `.py` を置き、
+`shape: "parts.<module>:<関数>"` で結ぶ。詳細は `references/bom.md`。
+
+### BOM を作った・変えたらカタログを更新する
+
+**`bom.yaml` や `parts/*.yaml` を新しく作ったとき、部品を足したとき、寸法を変えたときは、
+HTML カタログを作り直す。** BOM を書いて終わりにしない。
+
+```bash
+uv run python -m hwlib.bom_catalog     # docs/bom_catalog.html
+```
+
+生成対象は `parts/*.yaml` と `projects/*/bom.yaml` の全部なので、**新しい部品もプロジェクトも
+置くだけで載る**。手で追記する場所はない。ただし次の 2 つは自分でやる。
+
+- **生成した図を自分の目で確認する。** 生成しただけで完了としない。HTML は Read では
+  絵にならないので、ヘッドレスブラウザでスクリーンショットを撮ってから Read する。
+  寸法の取り違え（幅と奥行きの入れ替えなど）は、数値の羅列より図のほうが早く気づける
+
+  ```bash
+  google-chrome --headless --disable-gpu --hide-scrollbars \
+    --window-size=1150,3000 --screenshot=<スクラッチ>/catalog.png docs/bom_catalog.html
+  ```
+
+- 実形状モデル（`parts/*.py`）を作ったら、部品ファイルの `shape:` に書く。
+  書かないと直方体近似のまま描かれる
+
+ユーザに見せるときは `--fragment` で出して Artifact として発行する。
+
+カタログはコネクタ開口が面に収まらない部品を警告として出す。`bom.yaml` の面指定や
+開口寸法の食い違いはここで拾う。詳細は `references/bom.md` の「BOM カタログ（HTML）」。
 
 ## 段階 4: CAD 設計
 

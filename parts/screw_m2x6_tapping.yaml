@@ -1,0 +1,13 @@
+id: screw_m2x6_tapping
+name: M2 × 6 タッピングネジ
+category: fastener
+
+size: [2.0, 2.0, 6.0]
+mount_holes: []
+hole_dia: 0.0
+
+confidence: user_provided
+note: >
+  サーボのケース固定・ホーン締結に使う M2 タッピング。下穴径・必要ねじ込み深さは
+  hwlib.features.SCREWS["M2"]（下穴 φ1.6、ねじ込み 4.0 以上）を使う。
+  相手が金属インサートや既存のネジ穴の場合は、相手側の限界深さを確認すること。

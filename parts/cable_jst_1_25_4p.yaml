@@ -1,0 +1,14 @@
+id: cable_jst_1_25_4p
+name: 1.25-4P サーボケーブル（オス-メス延長 100mm）
+category: wiring
+
+# 部品の外形ではなく、束ねたケーブルが占める空間として決めた値
+size: [8.0, 8.0, 40.0]
+mount_holes: []
+hole_dia: 0.0
+
+confidence: user_provided
+note: >
+  Feetech SCS0009 などのシリアルバスサーボに使う 1.25mm ピッチ 4 極ケーブル。
+  size はケーブル自体の外形ではなく、取り回しに確保する空間として設計側で
+  決めた値。通す経路が変われば見直すこと。

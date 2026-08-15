@@ -1,0 +1,24 @@
+id: raspberry_pi_zero_2w
+name: Raspberry Pi Zero 2 W
+category: board
+
+# 公式機械図面より: 基板 65 x 30 mm。高さは基板厚 1.0 + 実装部品・コネクタの高さ
+size: [65.0, 30.0, 5.0]
+# 四隅から 3.5 mm。ピッチ 58 x 23 mm
+mount_holes: [[3.5, 3.5], [61.5, 3.5], [3.5, 26.5], [61.5, 26.5]]
+hole_dia: 2.75
+
+connectors:
+  - name: micro_usb_power
+    pos: [54.0, 0.0, 2.5]   # 図面の 54 mm は基板左端からコネクタ中心までの距離
+    size: [8.0, 3.0]
+    face: "-y"
+    depth: 15.0
+
+confidence: datasheet
+source: https://datasheets.raspberrypi.com/rpizero2/raspberry-pi-zero-2-w-mechanical-drawing.pdf
+note: >
+  基板 65 x 30 mm、ネジ穴ピッチ 58 x 23 mm、穴径 2.75 mm。
+  高さ 5.0 mm は実装部品込みの概算。余裕のないケースでは実測すること。
+  mini HDMI（基板左端から 41.4 mm）もあるが、開口を設ける設計で使うときに
+  connectors へ追加する。

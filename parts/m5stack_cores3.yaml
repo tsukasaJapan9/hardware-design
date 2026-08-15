@@ -1,0 +1,30 @@
+id: m5stack_cores3
+name: M5Stack CoreS3
+category: board
+
+size: [54.0, 54.0, 15.5]
+mount_holes: []
+hole_dia: 0.0
+
+connectors:
+  # 画面（前面に出す開口）。CoreS3 前面のほぼ全面が 2.0" タッチ画面
+  - name: screen
+    pos: [27.0, 0.0, 7.75]
+    size: [48.0, 48.0]
+    face: "-y"
+    depth: 0.0
+  # USB Type-C（充電・書き込み）。右側面下部（概略位置）
+  - name: usb_c
+    pos: [54.0, 27.0, 4.0]
+    size: [10.0, 5.0]
+    face: "+x"
+    depth: 12.0
+
+confidence: datasheet
+source: https://docs.m5stack.com/en/core/CoreS3
+note: >
+  画面・カメラ・マイク・IMU・スピーカー・ボタンを内蔵する。1 つの board として扱う。
+  取付穴位置は未取得。コネクタ位置は概略（外形シェルの開口確認用）。
+  screen の開口 48x48 は本体前面（54x54 の面）の寸法で、この size を
+  「奥行き 54・高さ 15.5」で置いた向きの -y 面には収まらない。
+  画面を前面に出す設計で使うときは、置く向きに合わせて face と pos を見直すこと。

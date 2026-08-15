@@ -1,0 +1,14 @@
+id: screw_m2x6_pan
+name: M2 × 6 なべ小ねじ（DYNAMIXEL XL330 付属）
+category: fastener
+
+size: [2.0, 2.0, 6.0]
+mount_holes: []
+hole_dia: 0.0
+
+confidence: datasheet
+source: https://emanual.robotis.com/docs/en/dxl/x/xl330-m288/
+note: >
+  XL330 に付属する出力ホーン締結用のネジ。ホーンへのねじ込みは DP3.0 Max で、
+  M2x8 以上を入れるとサーボ内部を破損する。頭を座ぐりに沈めて軸方向の
+  積み上げを合わせること（相手の限界を超えない長さを選ぶ）。
