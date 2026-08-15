@@ -52,6 +52,8 @@ uv run python -m hwlib.bom_catalog     # out/bom_catalog.html
 ```
 
 `projects/*/bom.yaml` の全部品を、三面図（第三角法）と仕様の一覧にした HTML を出す。
+**BOM を作った・変えたら作り直す**（生成対象は全プロジェクトなので、新しい `bom.yaml` は
+置くだけで載る）。全部品ぶんのカードが生成されることは `uv run pytest` が確認する。
 図は BOM の値から作った形状を build123d で投影したもので、手描きではないため
 形状と図がずれない。図の出所は部品ごとに 3 種類あり、カードに明示する。
 

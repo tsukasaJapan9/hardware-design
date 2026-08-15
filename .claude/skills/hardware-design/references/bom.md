@@ -111,7 +111,57 @@ excluded:                            # 不要と判断したカテゴリと、�
 `assert_all_parts_placed()` の対象外になる。
 ただし**配線が占める空間を確保したい場合は `geometric: true` にして体積を持たせる。**
 
-## カタログ
+## 部品寸法のカタログ（`hwlib/catalog.py`）
 
 一度調べた部品は `hwlib/catalog.py` に登録し、次回以降の調査を省く。
 登録時も出典 URL は必須。裏が取れない項目は登録しない。
+
+## BOM カタログ（HTML）
+
+`projects/*/bom.yaml` の全部品を、三面図（第三角法）と仕様の一覧にした HTML。
+部品を型番・寸法・固定方法・出典まで含めて一度に見るためのもの。
+
+```bash
+uv run python -m hwlib.bom_catalog                 # out/bom_catalog.html
+uv run python -m hwlib.bom_catalog --fragment      # <style> と <main> だけ（Artifact 用）
+```
+
+### ルール: BOM を作った・変えたら作り直す
+
+**`bom.yaml` を新規に作ったとき、部品を足したとき、寸法・出典・retention を変えたときは、
+カタログを生成し直し、図を目で確認する。** HTML は Read では絵にならないので、
+ヘッドレスブラウザでスクリーンショットにしてから Read する。
+
+```bash
+google-chrome --headless --disable-gpu --hide-scrollbars \
+  --window-size=1150,3000 --screenshot=<スクラッチ>/catalog.png out/bom_catalog.html
+```
+
+生成対象は `projects/*/bom.yaml` 全部なので、新しいプロジェクトは置くだけで載る。
+一覧に手で追記する場所はない。載らない場合は `load_bom()` が通っていないということ
+なので、まず `bom.yaml` の不備を直す。
+
+`uv run pytest` の `tests/test_bom_catalog.py` が、全 BOM の全部品ぶんのカードが
+生成されることを確認する。BOM を足してテストが落ちたら、その BOM に不備がある。
+
+### 図の出所は 3 種類
+
+| 種別 | 何を描くか | いつ |
+|---|---|---|
+| 実形状 | 実際の形（図面・実測に基づくソリッドの投影） | `hwlib/parts/` にモデルがあり、`REAL_SHAPES` に登録した部品 |
+| 外形近似 | BOM の `size` の直方体。`mount_holes` があれば穴も開ける | 既定 |
+| 略図 | 呼び径と首下長さのみ | `category: fastener` |
+
+図は build123d の `project_to_viewport()` で実際のソリッドを投影して作る。手描きの
+近似ではないので、図と CAD の形状はずれない。見える稜線は実線、隠れた稜線は破線。
+
+**実形状モデルを持つ部品を BOM に入れたら `hwlib/bom_catalog.py` の `REAL_SHAPES` に
+`(プロジェクト, 部品 id): (形状を返す関数, 出所の説明)` で登録する。**
+登録しないと直方体近似のまま描かれる。実形状の外形が BOM の `size` と食い違う場合
+（突起を含むなど）は、カタログが「図上の外形」として両方を出す。
+
+### カタログが拾う不備
+
+- **コネクタ開口が面に収まらない部品** — 面の指定と開口寸法の食い違い。図には枠を描かず
+  位置だけ示し、仕様表に警告を出す
+- **`confidence: provisional` の部品** — 冒頭に一覧で出る。印刷・発注の前に実測して確定する

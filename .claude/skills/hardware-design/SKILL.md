@@ -63,6 +63,35 @@ build123d でハードウェアを設計する。目的は 2 つ。
 
 `bom.yaml` は `hwlib.bom.load_bom()` で読む。寸法・出典・固定方法・カテゴリの網羅性に不備があればエラーになり、段階 4 に進めない。
 
+### BOM を作った・変えたらカタログを更新する
+
+**`bom.yaml` を新しく作ったとき、部品を足したとき、寸法を変えたときは、HTML カタログを
+作り直す。** BOM を書いて終わりにしない。
+
+```bash
+uv run python -m hwlib.bom_catalog     # out/bom_catalog.html
+```
+
+生成対象は `projects/*/bom.yaml` 全部なので、**新しいプロジェクトは置くだけで載る**。
+手で追記する場所はない。ただし次の 2 つは自分でやる。
+
+- **生成した図を自分の目で確認する。** 生成しただけで完了としない。HTML は Read では
+  絵にならないので、ヘッドレスブラウザでスクリーンショットを撮ってから Read する。
+  寸法の取り違え（幅と奥行きの入れ替えなど）は、数値の羅列より図のほうが早く気づける
+
+  ```bash
+  google-chrome --headless --disable-gpu --hide-scrollbars \
+    --window-size=1150,3000 --screenshot=<スクラッチ>/catalog.png out/bom_catalog.html
+  ```
+
+- 実形状モデル（`hwlib/parts/`）を持つ部品を BOM に入れたら、`hwlib/bom_catalog.py` の
+  `REAL_SHAPES` に `(プロジェクト, 部品 id)` で登録する。登録しないと直方体近似のまま描かれる
+
+ユーザに見せるときは `--fragment` で出して Artifact として発行する。
+
+カタログはコネクタ開口が面に収まらない部品を警告として出す。`bom.yaml` の面指定や
+開口寸法の食い違いはここで拾う。詳細は `references/bom.md` の「BOM カタログ（HTML）」。
+
 ## 段階 4: CAD 設計
 
 1. `bom.yaml` から部品のモック（外形の直方体）を生成し、配置する
