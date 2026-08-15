@@ -1,53 +1,38 @@
 project: pen_robo_wheel_hub
 
 # 変換ハブ単体の設計。相手部品（サーボ・ホイール）は干渉確認用に置くが、
-# 印刷するのはハブ本体のみ。相手部品の嵌合寸法は provisional（実測待ち）。
+# 印刷するのはハブ本体のみ。
+# 部品は parts/ の部品ライブラリを use: で参照し、ここには使い方だけを書く。
 
 components:
-  - id: xl330
-    name: DYNAMIXEL XL330-M077-T（車輪サーボ）
-    category: actuator
-    size: [20.0, 34.0, 26.0]
+  - use: dynamixel_xl330
+    id: xl330
     clearance: 1.0
     retention: ロボット脚側に固定（この部品では対象外、干渉確認用）
-    confidence: datasheet
-    source: https://emanual.robotis.com/docs/en/dxl/x/xl330-m288/
-    note: ケース外形は確定。出力ホーンの M2x4 パターンは公式図面/実測で確定する
+    note: 車輪サーボ（M077）として使う。ハブはこの出力ホーンに締結する
 
-  - id: wheel
-    name: タミヤ No.145 ナロータイヤ（58mm）
-    category: actuator
-    size: [58.0, 58.0, 16.0]
+  - use: tamiya_narrow_tire_70145
+    id: wheel
     clearance: 1.0
     retention: 変換ハブに 3x8mm タッピングビス3本で固定
-    confidence: datasheet
-    source: https://www.tamiya.com/japan/products/70145/index.html
-    note: 外径58/幅16は確定。3点留めPCD・中央ボア径は実測待ち（PROVISIONAL 参照）
+    note: 駆動輪。ハブはウェブのポケットに収まり、外周で芯出しする
 
-  - id: screws_horn
-    name: M2x6 なべ小ねじ x4（ホーン固定・XL330 付属）
-    category: fastener
-    size: [2.0, 2.0, 6.0]
-    confidence: datasheet
+  - use: screw_m2x6_pan
+    id: screws_horn
     geometric: false
-    source: https://emanual.robotis.com/docs/en/dxl/x/xl330-m288/
     note: >
-      XL330 付属の M2x6 を使う。ハブ全高 7.5mm に対しネジが短いため、頭を
-      座ぐり 4.5mm と深く沈めて先端をホーンまで届かせる（model.Params.cb_depth）。
-      頭は上面より 3mm 下に収まりウェブに当たらない。ねじ込みは DP3.0 Max
-      ちょうど。M2x8 以上を入れると DP3.0 を超えサーボ内部を破損するので不可。
+      ホーン固定に 4 本（XL330 付属品）。ハブ全高 7.5mm に対しネジが短いため、
+      頭を座ぐり 4.5mm と深く沈めて先端をホーンまで届かせる
+      （model.Params.cb_depth）。頭は上面より 3mm 下に収まりウェブに当たらない。
+      ねじ込みは DP3.0 Max ちょうど。
 
-  - id: screws_wheel
-    name: 3x8mm タッピングビス x3（ホイール固定・タミヤ付属）
-    category: fastener
-    size: [3.0, 3.0, 8.0]
-    confidence: datasheet
+  - use: tamiya_screw_3x8_tapping
+    id: screws_wheel
     geometric: false
-    source: https://www.tamiya.com/japan/products/70145/index.html
     note: >
-      タミヤ 70145 付属。実測外径 3.0mm（2026-08-09）。ハブ側は下穴 φ2.7 設計
-      （刷り上がり φ2.5 目標＝呼び径×0.83）＋入口面取り。初回印刷で φ2.4 設計の
-      穴が縮んでビスが入らなかったため、縮み見込み 0.2 を足して見直した。
+      ホイール固定に 3 本（タミヤ 70145 付属品）。ハブ側は下穴 φ2.7 設計
+      （刷り上がり φ2.5 目標）＋入口面取り。初回印刷で φ2.4 設計の穴が縮んで
+      ビスが入らなかったため、縮み見込み 0.2 を足して見直した。
 
 excluded:
   board: 電子基板は載らない

@@ -28,7 +28,7 @@ pen_robo（ホイール脚ロボット）の部品を個別に設計する第1�
 大3（3×8 ビス貫通）と小3（純正ハブの位置決めピン）が PCD20 上に 60 度ごと交互に並ぶ。
 締結方向は、ビスがハブと反対の面から入りウェブを貫通してハブにねじ込む（ねじ山はハブ側だけ）。
 
-詳細は `hwlib/parts/tamiya_wheel.py` の docstring と `datasheets/README.md`。
+詳細は `parts/tamiya_wheel.py` の docstring と `datasheets/README.md`。
 
 ## 確定寸法
 

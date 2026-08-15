@@ -2,6 +2,10 @@
 
 bom.yaml を読み込み、寸法が確定していない部品があればエラーにする。
 これにより「寸法未確定のまま CAD 設計に進む」ことを機械的に防ぐ。
+
+部品は `use: <部品 id>` で部品ライブラリ（`parts/`、hwlib.library）を参照する。
+bom.yaml に書くのは「どう使うか」だけで、寸法はライブラリが持つ。同じ部品を
+複数のプロジェクトから使い回しても、寸法の出所は 1 か所に固定される。
 """
 
 from __future__ import annotations
@@ -12,6 +16,8 @@ from pathlib import Path
 
 import yaml
 from build123d import Align, Box, Part, Pos
+
+from hwlib.library import LibraryError, load_part
 
 # 部品の洗い出しで確認すべきカテゴリ。
 # 各カテゴリは「部品がある」か「不要である理由が記録されている」かのどちらかでなければならない。
@@ -36,6 +42,16 @@ VALID_CONFIDENCE = {
 
 # 印刷・発注に進んでよい（＝確定した）信頼度。provisional はここに含めない。
 CONFIRMED_CONFIDENCE = VALID_CONFIDENCE - {"provisional"}
+
+# 部品ライブラリだけが持てる項目。プロジェクトが上書きすると、同じ部品の寸法が
+# プロジェクトごとに散らばり、ライブラリ化した意味が無くなるためエラーにする。
+LIBRARY_ONLY = {
+    "name", "size", "mount_holes", "hole_dia", "connectors",
+    "confidence", "source", "datasheet", "shape",
+}
+
+# プロジェクトが決める項目（＝その部品を「どう使うか」）。
+PROJECT_FIELDS = {"use", "id", "category", "retention", "clearance", "geometric", "note"}
 
 
 class BomError(Exception):
@@ -84,6 +100,12 @@ class Component:
     # 収まっていても固定されていなければ組み立てたことにならない。
     # 干渉チェックは「箱の中で部品が浮いている」状態を素通りさせるため、宣言を必須にする。
     retention: str = ""
+    # 参照した部品ライブラリの id（parts/<library_id>.yaml）。直書きの部品では空。
+    library_id: str = ""
+    # 実形状モデル "<module>:<関数>"。ライブラリから引き継ぐ。
+    shape: str = ""
+    # 寸法の根拠になるローカルの図面（datasheets/ 配下）。
+    datasheet: str = ""
 
     def mock(self) -> Part:
         """部品の簡易ソリッド（外形の直方体）。
@@ -133,6 +155,80 @@ class Bom:
         return [c for c in self.components if c.category == category]
 
 
+def resolve_library_ref(raw: dict) -> dict:
+    """`use:` の部品をライブラリから引き、プロジェクト側の指定と合成する。
+
+    寸法系（LIBRARY_ONLY）をプロジェクトが書いていたらエラーにする。
+    これを許すと同じ部品の寸法がプロジェクトごとに散らばり、ライブラリ化した
+    意味が無くなる。値を変えたいならライブラリ側を直すか、別部品として登録する。
+    """
+    part = load_part(raw["use"])
+
+    overridden = sorted(set(raw) & LIBRARY_ONLY)
+    if overridden:
+        raise BomError(
+            f"{overridden} は部品ライブラリだけが持つ項目です。"
+            f"値を変えるなら parts/{raw['use']}.yaml を直すか、別の部品として登録すること"
+            "（プロジェクトごとに寸法を書き換えると、出所が 1 か所でなくなる）"
+        )
+    unknown = sorted(set(raw) - PROJECT_FIELDS)
+    if unknown:
+        raise BomError(
+            f"知らない項目 {unknown}。use: で参照する部品に書けるのは "
+            f"{sorted(PROJECT_FIELDS - {'use'})}"
+        )
+
+    merged = {k: v for k, v in part.items() if k not in ("id", "note")}
+    merged.update({k: v for k, v in raw.items() if k not in ("use", "note")})
+    merged["id"] = raw.get("id", part["id"])
+    merged["library_id"] = part["id"]
+
+    # note は部品の性質（ライブラリ）と設計上の判断（プロジェクト）の両方を残す
+    notes = [
+        text.strip()
+        for text in (part.get("note", ""), raw.get("note", ""))
+        if text and str(text).strip()
+    ]
+    merged["note"] = "\n".join(notes)
+    return merged
+
+
+def component_from_dict(raw: dict) -> Component:
+    """辞書を Component にする。検証はしない（呼ぶ側の責任）。
+
+    load_bom（プロジェクトの部品）と、部品ライブラリを単体で図面化する側
+    （hwlib.bom_catalog）の両方から使うため分けてある。
+    """
+    connectors = [
+        Connector(
+            name=c["name"],
+            pos=tuple(c["pos"]),
+            size=tuple(c["size"]),
+            face=c["face"],
+            depth=c.get("depth", 10.0),
+        )
+        for c in raw.get("connectors", [])
+    ]
+    return Component(
+        id=raw["id"],
+        name=raw.get("name", raw["id"]),
+        category=raw["category"],
+        size=tuple(float(v) for v in raw["size"]),
+        confidence=raw["confidence"],
+        source=raw.get("source", ""),
+        mount_holes=[tuple(h) for h in raw.get("mount_holes", [])],
+        hole_dia=raw.get("hole_dia", 0.0),
+        connectors=connectors,
+        clearance=raw.get("clearance", 1.0),
+        note=raw.get("note", ""),
+        geometric=raw.get("geometric", True),
+        retention=raw.get("retention", ""),
+        library_id=raw.get("library_id", ""),
+        shape=raw.get("shape", ""),
+        datasheet=raw.get("datasheet", ""),
+    )
+
+
 def load_bom(path: str | Path) -> Bom:
     """bom.yaml を読み込み、検証する。
 
@@ -145,7 +241,15 @@ def load_bom(path: str | Path) -> Bom:
     problems: list[str] = []
 
     for i, raw in enumerate(data.get("components", [])):
-        cid = raw.get("id", f"<{i} 番目の部品: id なし>")
+        cid = raw.get("id") or raw.get("use") or f"<{i} 番目の部品: id なし>"
+
+        # 部品ライブラリを参照している場合は、まず寸法を引いてくる
+        if "use" in raw:
+            try:
+                raw = resolve_library_ref(raw)
+            except (BomError, LibraryError) as e:
+                problems.append(f"{cid}: {e}")
+                continue
 
         size = raw.get("size")
         if not size or len(size) != 3 or any(v is None or v <= 0 for v in size):
@@ -178,34 +282,7 @@ def load_bom(path: str | Path) -> Bom:
             )
             continue
 
-        connectors = [
-            Connector(
-                name=c["name"],
-                pos=tuple(c["pos"]),
-                size=tuple(c["size"]),
-                face=c["face"],
-                depth=c.get("depth", 10.0),
-            )
-            for c in raw.get("connectors", [])
-        ]
-
-        components.append(
-            Component(
-                id=raw["id"],
-                name=raw.get("name", raw["id"]),
-                category=category,
-                size=tuple(float(v) for v in size),
-                confidence=confidence,
-                source=raw.get("source", ""),
-                mount_holes=[tuple(h) for h in raw.get("mount_holes", [])],
-                hole_dia=raw.get("hole_dia", 0.0),
-                connectors=connectors,
-                clearance=raw.get("clearance", 1.0),
-                note=raw.get("note", ""),
-                geometric=raw.get("geometric", True),
-                retention=raw.get("retention", ""),
-            )
-        )
+        components.append(component_from_dict(raw))
 
     excluded = data.get("excluded", {}) or {}
 

@@ -1,13 +1,17 @@
 """BOM カタログ（HTML）の生成。
 
-projects/*/bom.yaml を読み、部品ごとに三面図と仕様をまとめた 1 枚の HTML を出す。
-部品を型番・寸法・固定方法・出典まで含めて一覧できるようにするのが目的。
+部品ライブラリ（parts/）と projects/*/bom.yaml を読み、1 枚の HTML にまとめる。
 
-図は BOM の値から作った形状を build123d で投影したもの（hwlib.drawing）。
-形状の出所は 3 通りあり、カードに明示する。
+  部品ライブラリ    共有部品を三面図つきで 1 回だけ載せ、使用プロジェクトを示す
+  プロジェクト別    どの部品をどう使うか（固定方法・クリアランス・設計上の判断）
 
-  実形状     hwlib.parts に実形状モデルがある部品（図面・実測に基づく）
-  外形近似   BOM の size から作った直方体。取付穴があれば穴も開ける
+同じ部品を複数のプロジェクトで使っても図と寸法は 1 か所にまとまる。
+
+図は部品の形状を build123d で投影したもの（hwlib.drawing）。形状の出所は
+3 通りあり、カードに明示する。
+
+  実形状     parts/*.yaml の shape: が指す実形状モデル（図面・実測に基づく）
+  外形近似   size から作った直方体。取付穴があれば穴も開ける
   略図       締結部品。呼び径と首下長さだけを図示する
 
 使い方:
@@ -22,30 +26,16 @@ import warnings
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Callable
 
 from build123d import Align, Cylinder, Part, Pos
 
-from hwlib.bom import CATEGORIES, Bom, Component, Connector, load_bom
+from hwlib.bom import CATEGORIES, Bom, Component, Connector, component_from_dict, load_bom
 from hwlib.drawing import Mark, fastener_svg, three_view_svg
-from hwlib.parts import tamiya_wheel, xl330
+from hwlib.library import all_parts, load_shape
 
 ROOT = Path(__file__).resolve().parent.parent
 PROJECTS_DIR = ROOT / "projects"
 DEFAULT_OUT = ROOT / "out" / "bom_catalog.html"
-
-# 実形状モデルを持つ部品。(プロジェクト, 部品 id) → (形状, 出所の説明)
-# 直方体近似ではなく実際の形で描けるものは、そちらを使う。
-REAL_SHAPES: dict[tuple[str, str], tuple[Callable[[], Part], str]] = {
-    ("pen_robo_wheel_hub", "xl330"): (
-        xl330.body,
-        "hwlib.parts.xl330（公式図面 X330 ＋ ホーン部の実測）",
-    ),
-    ("pen_robo_wheel_hub", "wheel"): (
-        tamiya_wheel.body,
-        "hwlib.parts.tamiya_wheel（70145 組立説明図 ＋ 実測）",
-    ),
-}
 
 # 寸法の信頼度。ラベル、意味、強調の種別。
 CONFIDENCE: dict[str, tuple[str, str, str]] = {
@@ -132,21 +122,23 @@ def connector_fits(component: Component, connector: Connector) -> bool:
     return cw <= fw + 1e-6 and ch <= fh + 1e-6
 
 
-def draw(project: str, component: Component) -> Drawing:
+def draw(component: Component) -> Drawing:
     """部品 1 点の図を作る。実形状 → 締結部品の略図 → 外形近似 の順に選ぶ。"""
-    real = REAL_SHAPES.get((project, component.id))
-    if real is not None:
-        builder, basis = real
-        part = builder()
+    if component.shape:
+        part = load_shape(component.shape)()
         size = part.bounding_box().size
-        return Drawing(three_view_svg(part), "実形状", basis, (size.X, size.Y, size.Z))
+        return Drawing(
+            three_view_svg(part), "実形状",
+            f"{component.shape}（部品ライブラリの shape:）",
+            (size.X, size.Y, size.Z),
+        )
 
     if component.category == "fastener":
         nominal, _, length = component.size
         return Drawing(
             fastener_svg(nominal, length),
             "略図",
-            "呼び径と首下長さのみ（BOM の size）",
+            "呼び径と首下長さのみ（size より）",
         )
 
     marks = [
@@ -154,11 +146,9 @@ def draw(project: str, component: Component) -> Drawing:
              outline=connector_fits(component, c))
         for c in component.connectors
     ]
-    basis = "BOM の size から作った直方体"
+    basis = "size から作った直方体"
     if component.mount_holes and component.hole_dia > 0:
         basis += f"＋取付穴 φ{fmt(component.hole_dia)} × {len(component.mount_holes)}"
-    if not component.geometric:
-        basis += "（CAD には配置しない部品。占有する空間を示す）"
     return Drawing(three_view_svg(mock_with_holes(component), marks=marks), "外形近似", basis)
 
 
@@ -166,36 +156,32 @@ def draw(project: str, component: Component) -> Drawing:
 
 
 def spec_rows(component: Component, drawing: Drawing) -> str:
+    """部品そのものの仕様（ライブラリが持つ値）。使い方はプロジェクト側に出す。"""
     w, d, h = component.size
     label, meaning, tone = CONFIDENCE[component.confidence]
 
     rows: list[tuple[str, str]] = [
         ("外形寸法", f"W {fmt(w)} × D {fmt(d)} × H {fmt(h)} mm"
-                     f'<span class="muted"> BOM の size（CAD の収まり検証はこの値で行う）</span>'),
-        ("カテゴリ", f"{category_label(component.category)}<span class=\"muted\"> / {component.category}</span>"),
+                     f'<span class="muted"> CAD の収まり検証はこの値で行う</span>'),
+        ("カテゴリ", f"{category_label(component.category)}<span class=\"muted\"> / {component.category}"
+                     "（プロジェクトで上書き可）</span>"),
         (
             "寸法の信頼度",
             f'<span class="badge {tone}">{label}</span>'
             f'<span class="muted"> {esc(meaning)}</span>',
         ),
-        ("固定方法", esc(component.retention) if component.retention
-            else '<span class="muted">—（CAD に配置しない部品）</span>'),
-    ]
-    if component.geometric:
-        rows.append(("クリアランス", f"周囲 {fmt(component.clearance)} mm"))
-    rows.append(
         ("図の種別", f'<span class="badge kind">{drawing.kind}</span>'
-                     f'<span class="muted"> {esc(drawing.basis)}</span>')
-    )
+                     f'<span class="muted"> {esc(drawing.basis)}</span>'),
+    ]
 
-    # 図の外形が BOM の直方体と食い違う場合は、その差を明示する
+    # 図の外形が size の直方体と食い違う場合は、その差を明示する
     if drawing.outline and any(
         abs(a - b) > 0.05 for a, b in zip(drawing.outline, component.size)
     ):
         ow, od, oh = drawing.outline
         rows.append(
             ("図上の外形", f"W {fmt(ow)} × D {fmt(od)} × H {fmt(oh)} mm"
-                           f'<span class="muted"> 実形状モデルの外形。BOM の size は'
+                           f'<span class="muted"> 実形状モデルの外形。size は'
                            f"ケース部の値で、突起（ホーンなど）を含まないため一致しない</span>")
         )
 
@@ -212,7 +198,7 @@ def spec_rows(component: Component, drawing: Drawing) -> str:
                 warn = (
                     f'<div class="inline-warn">開口 {fmt(c.size[0])} × {fmt(c.size[1])} mm が'
                     f"{FACE_LABEL.get(c.face, c.face)}（{fmt(fw)} × {fmt(fh)} mm）に収まらない。"
-                    "bom.yaml の面の指定か開口寸法を要確認（図では枠を描かず位置だけ示す）</div>"
+                    "部品ライブラリの face か開口寸法を要確認（図では枠を描かず位置だけ示す）</div>"
                 )
             items.append(
                 f'<li><span class="num">{i}</span> {esc(c.name)}'
@@ -223,38 +209,91 @@ def spec_rows(component: Component, drawing: Drawing) -> str:
         rows.append(("コネクタ開口", f'<ul class="conn">{"".join(items)}</ul>'))
     if component.source:
         rows.append(("出典", f'<a href="{esc(component.source)}">{esc(component.source)}</a>'))
+    if component.datasheet:
+        rows.append(("図面", f"<code>{esc(component.datasheet)}</code>"
+                             '<span class="muted"> リポジトリに保存した現物</span>'))
 
     return "".join(
         f'<tr><th>{key}</th><td>{value}</td></tr>' for key, value in rows
     )
 
 
-def card_html(project: str, component: Component) -> str:
-    drawing = draw(project, component)
+def card_html(component: Component, *, anchor: str, users: str = "", source_file: str = "") -> str:
+    """部品 1 点のカード（三面図＋仕様）。"""
+    drawing = draw(component)
     note = (
         f'<p class="note">{esc(component.note.strip())}</p>'
         if component.note.strip() else ""
     )
     tags = [f'<span class="tag">{category_label(component.category)}</span>']
-    if not component.geometric:
-        tags.append('<span class="tag ghost">CAD 非配置</span>')
     if component.confidence == "provisional":
         tags.append('<span class="tag warn">寸法 暫定</span>')
 
     return f"""
-<article class="card" id="{esc(project)}--{esc(component.id)}">
+<article class="card" id="{esc(anchor)}">
   <header class="card-head">
     <h3>{esc(component.name)}</h3>
     <div class="tags"><code>{esc(component.id)}</code>{"".join(tags)}</div>
+    {f'<p class="path"><code>{esc(source_file)}</code></p>' if source_file else ""}
   </header>
   <div class="card-body">
     <figure class="drawing">{drawing.svg}</figure>
     <div class="spec">
       <table>{spec_rows(component, drawing)}</table>
       {note}
+      {users}
     </div>
   </div>
 </article>"""
+
+
+def library_components() -> dict[str, Component]:
+    """部品ライブラリを Component にして返す（図と仕様の生成用）。"""
+    return {pid: component_from_dict(part) for pid, part in all_parts().items()}
+
+
+def usage(boms: list[tuple[Path, Bom]]) -> dict[str, list[tuple[str, str]]]:
+    """ライブラリ部品 id → [(プロジェクト, そこでの部品 id), ...]。"""
+    used: dict[str, list[tuple[str, str]]] = {}
+    for _, bom in boms:
+        for c in bom.components:
+            if c.library_id:
+                used.setdefault(c.library_id, []).append((bom.project, c.id))
+    return used
+
+
+def usage_html(users: list[tuple[str, str]]) -> str:
+    if not users:
+        return ('<p class="users"><span class="muted">まだどのプロジェクトからも'
+                "使われていない</span></p>")
+    links = "".join(
+        f'<a class="chip" href="#{esc(project)}--{esc(cid)}">{esc(project)}'
+        f'<span class="muted"> / {esc(cid)}</span></a>'
+        for project, cid in users
+    )
+    return f'<p class="users"><span class="users-label">使用</span>{links}</p>'
+
+
+def library_html(boms: list[tuple[Path, Bom]]) -> str:
+    """部品ライブラリの section。共有部品を三面図つきで 1 回だけ載せる。"""
+    used = usage(boms)
+    components = library_components()
+    cards = "".join(
+        card_html(
+            component,
+            anchor=f"part--{pid}",
+            users=usage_html(used.get(pid, [])),
+            source_file=f"parts/{pid}.yaml",
+        )
+        for pid, component in sorted(components.items())
+    )
+    return f"""
+<section class="library" id="library">
+  <h2>部品ライブラリ</h2>
+  <p class="summary"><code>parts/</code> に置いた共有部品 {len(components)} 点。
+  寸法・出典はここだけが持ち、プロジェクトは <code>use:</code> で参照する。</p>
+  {cards}
+</section>"""
 
 
 def project_summary(path: Path) -> tuple[str, str]:
@@ -282,6 +321,47 @@ def project_summary(path: Path) -> tuple[str, str]:
     return title, summary
 
 
+def component_row(bom: Bom, c: Component) -> str:
+    """プロジェクトの部品 1 行（どう使うか）。"""
+    if c.library_id:
+        part = (f'<a href="#part--{esc(c.library_id)}">{esc(c.name)}</a>'
+                f'<span class="sub">parts/{esc(c.library_id)}.yaml</span>')
+    else:
+        part = (f'{esc(c.name)}<span class="sub">bom.yaml に直接記載'
+                "（ライブラリ未登録）</span>")
+    w, d, h = c.size
+    dash = '<span class="muted">—</span>'
+    retention = esc(c.retention) if c.retention else dash
+    clearance = fmt(c.clearance) if c.geometric else dash
+    placed = "配置する" if c.geometric else '<span class="muted">しない</span>'
+    return (
+        f'<tr id="{esc(bom.project)}--{esc(c.id)}">'
+        f"<td><code>{esc(c.id)}</code></td>"
+        f'<td class="part-cell">{part}</td>'
+        f'<td class="num-cell">{fmt(w)} × {fmt(d)} × {fmt(h)}</td>'
+        f'<td class="ret-cell">{retention}</td>'
+        f'<td class="num-cell">{clearance}</td>'
+        f"<td>{placed}</td>"
+        f'<td class="note-cell">{esc(project_note(c))}</td>'
+        "</tr>"
+    )
+
+
+def project_note(c: Component) -> str:
+    """プロジェクト側で書いた note。ライブラリ由来の行は落とす。
+
+    note は「ライブラリの note ＋ プロジェクトの note」を改行でつないだもの
+    （hwlib.bom.resolve_library_ref）。プロジェクト表にはその後半だけを出す。
+    """
+    if not c.library_id:
+        return c.note.strip()
+    library_note = (all_parts().get(c.library_id, {}).get("note") or "").strip()
+    text = c.note.strip()
+    if library_note and text.startswith(library_note):
+        text = text[len(library_note):]
+    return text.strip()
+
+
 def project_html(path: Path, bom: Bom) -> str:
     title, summary = project_summary(path)
     heading = title or bom.project
@@ -294,38 +374,58 @@ def project_html(path: Path, bom: Bom) -> str:
         f'（{len(bom.excluded)} 件）</summary><ul>{excluded}</ul></details>'
         if bom.excluded else ""
     )
-    cards = "".join(card_html(bom.project, c) for c in bom.components)
+    rows = "".join(component_row(bom, c) for c in bom.components)
+    # ライブラリに無い部品（直書き）は図が他に出ないので、ここにカードを置く
+    cards = "".join(
+        card_html(c, anchor=f"{bom.project}--{c.id}--card")
+        for c in bom.components if not c.library_id
+    )
     return f"""
 <section class="project" id="{esc(bom.project)}">
   <h2>{esc(heading)}</h2>
   <p class="path"><code>projects/{esc(bom.project)}/bom.yaml</code> · 部品 {len(bom.components)} 点</p>
   {f'<p class="summary">{esc(summary)}</p>' if summary else ""}
   {excluded_block}
+  <div class="scroll">
+  <table class="list">
+    <thead><tr><th>id</th><th>部品（ライブラリ）</th><th>W × D × H [mm]</th>
+    <th>固定方法</th><th>クリアランス [mm]</th><th>CAD 配置</th><th>設計上の判断</th></tr></thead>
+    <tbody>{rows}</tbody>
+  </table>
+  </div>
   {cards}
 </section>"""
 
 
 def index_html(boms: list[tuple[Path, Bom]]) -> str:
+    used = usage(boms)
     rows = []
-    for _, bom in boms:
-        for c in bom.components:
-            label, _, tone = CONFIDENCE[c.confidence]
-            w, d, h = c.size
-            rows.append(
-                f'<tr><td><a href="#{esc(bom.project)}">{esc(bom.project)}</a></td>'
-                f'<td><a href="#{esc(bom.project)}--{esc(c.id)}"><code>{esc(c.id)}</code></a></td>'
-                f"<td>{esc(c.name)}</td>"
-                f"<td>{category_label(c.category)}</td>"
-                f"<td class=\"num-cell\">{fmt(w)} × {fmt(d)} × {fmt(h)}</td>"
-                f'<td><span class="badge {tone}">{label}</span></td></tr>'
-            )
+    for pid, component in sorted(library_components().items()):
+        label, _, tone = CONFIDENCE[component.confidence]
+        w, d, h = component.size
+        # 同じプロジェクトで複数回使う部品は、どの部品として使っているかも出す
+        seen = [project for project, _ in used.get(pid, [])]
+        users = "".join(
+            f'<a class="chip" href="#{esc(project)}--{esc(cid)}">{esc(project)}'
+            + (f'<span class="muted"> / {esc(cid)}</span>' if seen.count(project) > 1 else "")
+            + "</a>"
+            for project, cid in used.get(pid, [])
+        ) or '<span class="muted">未使用</span>'
+        rows.append(
+            f'<tr><td><a href="#part--{esc(pid)}"><code>{esc(pid)}</code></a></td>'
+            f"<td>{esc(component.name)}</td>"
+            f"<td>{category_label(component.category)}</td>"
+            f'<td class="num-cell">{fmt(w)} × {fmt(d)} × {fmt(h)}</td>'
+            f'<td><span class="badge {tone}">{label}</span></td>'
+            f"<td>{users}</td></tr>"
+        )
     return f"""
 <section class="index">
   <h2>部品一覧</h2>
   <div class="scroll">
   <table class="list">
-    <thead><tr><th>プロジェクト</th><th>id</th><th>部品名</th><th>カテゴリ</th>
-    <th>W × D × H [mm]</th><th>寸法の信頼度</th></tr></thead>
+    <thead><tr><th>部品 id</th><th>部品名</th><th>カテゴリ</th>
+    <th>W × D × H [mm]</th><th>寸法の信頼度</th><th>使用プロジェクト</th></tr></thead>
     <tbody>{"".join(rows)}</tbody>
   </table>
   </div>
@@ -369,16 +469,22 @@ LEGEND = """
     </div>
     <div>
       <h3>寸法</h3>
-      <p>W（幅 X）・D（奥行き Y）・H（高さ Z）を 1 回ずつ記入。値は BOM の
+      <p>W（幅 X）・D（奥行き Y）・H（高さ Z）を 1 回ずつ記入。値は部品ライブラリの
       <code>size</code>、実形状モデルの部品はその外形。単位は mm。</p>
     </div>
     <div>
       <h3>図の種別</h3>
       <ul>
         <li><span class="badge kind">実形状</span> 図面・実測に基づく実際の形</li>
-        <li><span class="badge kind">外形近似</span> BOM の外形寸法から作った直方体</li>
+        <li><span class="badge kind">外形近似</span> 外形寸法から作った直方体</li>
         <li><span class="badge kind">略図</span> 締結部品。呼び径と首下長さのみ</li>
       </ul>
+    </div>
+    <div>
+      <h3>部品とプロジェクトの分担</h3>
+      <p>寸法・取付穴・コネクタ・出典は <code>parts/&lt;id&gt;.yaml</code> が持つ。
+      固定方法・クリアランス・CAD に配置するかは、使う側の
+      <code>bom.yaml</code> が決める。</p>
     </div>
   </div>
 </section>"""
@@ -435,7 +541,8 @@ section { background: var(--panel); border: 1px solid var(--line); border-radius
 
 table { border-collapse: collapse; width: 100%; }
 .list { font-size: .9rem; min-width: 720px; }
-.list th, .list td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+.list th, .list td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+.list th:first-child, .list td:first-child { padding-left: 0; }
 .list thead th { color: var(--muted); font-weight: 600; white-space: nowrap; }
 .num-cell { white-space: nowrap; font-variant-numeric: tabular-nums; }
 
@@ -463,6 +570,21 @@ ul.conn { margin: 0; padding-left: 0; list-style: none; }
 ul.conn li { margin-bottom: 3px; }
 .inline-warn { background: var(--warn-bg); color: var(--warn-ink); border-radius: 4px;
   padding: 5px 8px; margin: 4px 0 8px; font-size: .82rem; line-height: 1.5; }
+.users { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline;
+  margin: 12px 0 0; font-size: .84rem; }
+.users-label { color: var(--muted); }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .78rem;
+  background: var(--ok-bg); color: var(--ok-ink); text-decoration: none; }
+.chip:hover { text-decoration: underline; }
+.note-cell { min-width: 165px; font-size: .84rem; color: var(--muted); }
+.ret-cell { min-width: 140px; }
+.part-cell { min-width: 170px; }
+.list td:last-child, .list th:last-child { padding-right: 0; }
+.sub { display: block; color: var(--muted); font-size: .8rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.projects-head { padding-bottom: 12px; }
+.library .card { margin-bottom: 22px; }
+.card-head .path { margin: 4px 0 0; }
 .num { display: inline-block; width: 16px; height: 16px; line-height: 16px; text-align: center;
   border-radius: 50%; background: var(--mark); color: #fff; font-size: .7rem; margin-right: 5px; }
 
@@ -506,15 +628,21 @@ svg.tv { max-width: 100%; height: auto; display: block; }
 
 
 def build_body(boms: list[tuple[Path, Bom]]) -> str:
-    total = sum(len(bom.components) for _, bom in boms)
+    used = sum(len(bom.components) for _, bom in boms)
     projects = "".join(project_html(path, bom) for path, bom in boms)
     return f"""<main>
 <h1>BOM カタログ</h1>
-<p class="lead">projects/*/bom.yaml の全部品 {total} 点。
-プロジェクト {len(boms)} 件 · 生成日 {date.today().isoformat()}</p>
+<p class="lead">部品ライブラリ <code>parts/</code> の {len(all_parts())} 点と、
+それを使う {len(boms)} プロジェクト（延べ {used} 点）· 生成日 {date.today().isoformat()}</p>
 {index_html(boms)}
 {provisional_html(boms)}
 {LEGEND}
+{library_html(boms)}
+<section class="projects-head">
+  <h2>プロジェクト別 BOM</h2>
+  <p class="summary">どの部品をどう使うか。寸法は部品ライブラリ側にあり、
+  ここに書けるのは固定方法・クリアランス・CAD に配置するか・設計上の判断だけ。</p>
+</section>
 {projects}
 </main>"""
 

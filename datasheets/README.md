@@ -4,7 +4,7 @@
 
 ## なぜリポジトリに置くか
 
-`catalog.py` や `bom.yaml` に書いた寸法が「どこから来たか」を後から検証できるようにするため。
+`parts/*.yaml` に書いた寸法が「どこから来たか」を後から検証できるようにするため。
 URL はリンク切れするが、ここに現物があれば根拠をたどれる。
 
 **新しい部品を調べたら、PDF をここに保存し、下表に「何が読めるか」を追記すること。**
@@ -29,7 +29,7 @@ ROBOTIS DYNAMIXEL XL330 / XC330 シリーズの機械図面（図面日付 28-Ma
 | ねじ込み深さ | DP 3.0 mm (Max) | M2x6 を使う（M2x8 は内部を破損） |
 | IDLER 側 | 4 x φ1.6、P.C.D φ12、外形 φ16 | 反対側の支持 |
 
-反映先: `hwlib/parts/xl330.py`、`hwlib/catalog.py`
+反映先: `parts/xl330.py`、`parts/dynamixel_xl330.yaml`
 
 ### tamiya_70145/70145.pdf
 
@@ -79,4 +79,4 @@ XL330 図面にも数値が無く、**未実測**の項目:
 - ホーン円板の外径・出っ張り高さ → `HORN_BOSS_DIA` / `HORN_BOSS_H`。変換ハブの芯出し
   スカートが被る相手面（IDLER 側の φ16 と同じかは未確認）
 
-反映先: `hwlib/parts/tamiya_wheel.py`、`hwlib/catalog.py`
+反映先: `parts/tamiya_wheel.py`、`parts/tamiya_narrow_tire_70145.yaml`

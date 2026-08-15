@@ -1,0 +1,14 @@
+id: feetech_scs0009
+name: Feetech SCS0009 シリアルバスサーボ
+category: actuator
+
+size: [23.2, 12.1, 25.25]
+mount_holes: []
+hole_dia: 0.0
+
+confidence: datasheet
+source: https://www.feetechrc.com/6v-23kg-serial-bus-steering-gear_65522.html
+note: >
+  20T スプライン OD3.95、線長 150mm、1.25-4P コネクタ。
+  取付穴・出力軸の位置は製品ページに数値が無い。ブラケットを設計するときは
+  図面の入手か実測で確定すること。

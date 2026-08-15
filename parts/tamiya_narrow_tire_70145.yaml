@@ -1,0 +1,22 @@
+id: tamiya_narrow_tire_70145
+name: タミヤ No.145 ナロータイヤセット (Item 70145)
+category: actuator
+
+# 組立説明図の寸法図より: タイヤ外径 58 x 幅 16 mm
+size: [58.0, 58.0, 16.0]
+# ホイールはハブを 3x8mm タッピングビス3本で三角形に留める。
+# 穴の PCD20 は図面で確定しているが、部品側の穴座標としては
+# 実形状モデル（parts/tamiya_wheel.py）が持つ。
+mount_holes: []
+hole_dia: 0.0
+
+confidence: datasheet
+source: https://www.tamiya.com/japan/products/70145/index.html
+datasheet: datasheets/tamiya_70145/70145.pdf
+shape: parts.tamiya_wheel:body
+note: >
+  ソリッドゴムタイヤ+樹脂ホイール2本組、~15g/輪(要実測)。
+  外径58/幅16は図面で確定。フランジ外径 42、ハブ取付穴は 3 点・PCD20。
+  ハブB1(六角軸/圧入)・B2(丸軸/3mmナット)付属。
+  ホイール幅 11・ウェブ厚 2.0・ポケット径 38・中心ボア 8.5・中央突起 φ11x2.0 は
+  実測で確定（2026-07-19 / 08-09）。実形状は parts/tamiya_wheel.py を使う。

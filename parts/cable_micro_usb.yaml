@@ -1,0 +1,14 @@
+id: cable_micro_usb
+name: micro USB ケーブル（電源）
+category: wiring
+
+# 部品の外形ではなく、ケーブルとプラグが占める空間として決めた値。
+# コネクタの挿抜に必要な空間は、相手基板の connectors（depth）で別に確保する。
+size: [12.0, 15.0, 8.0]
+mount_holes: []
+hole_dia: 0.0
+
+confidence: user_provided
+note: >
+  size はケーブル自体の外形ではなく、プラグまわりが占める空間として設計側で
+  決めた値。ケースの中で取り回す長さを見込む場合は、その空間を別に確保すること。

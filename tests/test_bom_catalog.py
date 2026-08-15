@@ -15,7 +15,9 @@ from hwlib.bom_catalog import (
     build_catalog,
     connector_fits,
     draw,
+    library_components,
     load_all,
+    usage,
 )
 from hwlib.drawing import VIEWS, project_view, three_view_svg
 
@@ -78,23 +80,37 @@ def test_connector_fit_check():
     assert not connector_fits(component, Connector("ng", (0, 0, 0), (48.0, 48.0), "-y"))
 
 
-def test_every_component_has_a_drawing(boms):
-    """全部品に図が付くこと。図の種別も想定の 3 種に収まること。"""
-    assert boms, "projects 配下に bom.yaml が見つからない"
-    for path, bom in boms:
-        for component in bom.components:
-            drawing = draw(bom.project, component)
-            assert drawing.svg.startswith("<svg")
-            assert drawing.kind in {"実形状", "外形近似", "略図"}
+def test_every_library_part_has_a_drawing():
+    """ライブラリの全部品に図が付くこと。図の種別も想定の 3 種に収まること。"""
+    components = library_components()
+    assert components, "parts/ に部品が見つからない"
+    for part_id, component in components.items():
+        drawing = draw(component)
+        assert drawing.svg.startswith("<svg"), f"{part_id}: 図が生成されていない"
+        assert drawing.kind in {"実形状", "外形近似", "略図"}
 
 
 def test_catalog_lists_every_component(boms):
-    """生成した HTML に全部品の id・部品名が載ること。"""
+    """生成した HTML に全ライブラリ部品と、全プロジェクトの部品が載ること。"""
     html = build_body(boms)
+    for part_id, component in library_components().items():
+        assert f'id="part--{part_id}"' in html, f"{part_id} のカードがない"
+        assert component.name in html
     for _, bom in boms:
         for component in bom.components:
-            assert f"{bom.project}--{component.id}" in html, f"{component.id} のカードがない"
-            assert component.name in html
+            assert f'id="{bom.project}--{component.id}"' in html, f"{component.id} の行がない"
+
+
+def test_usage_links_projects_to_library(boms):
+    """ライブラリ部品から使用プロジェクトを引けること（使い回しの可視化）。"""
+    used = usage(boms)
+    assert used, "ライブラリを参照している部品が 1 つも無い"
+    for part_id, users in used.items():
+        assert part_id in library_components(), f"{part_id} はライブラリに無い"
+    # 同じ部品を複数プロジェクトで使っている例が実際にあること
+    assert any(len({project for project, _ in users}) > 1 for users in used.values()), (
+        "複数プロジェクトで共有されている部品が無い（ライブラリ化の意味が出ていない）"
+    )
 
 
 def test_catalog_writes_file(tmp_path):

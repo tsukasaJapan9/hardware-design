@@ -11,7 +11,7 @@ from build123d import Align, Cylinder, Pos
 
 from hwlib import verify
 from hwlib.features import SCREWS
-from hwlib.parts import tamiya_wheel, xl330
+from parts import tamiya_wheel, xl330
 from projects.pen_robo_wheel_hub.model import (
     BOM,
     P,

@@ -1,0 +1,16 @@
+id: tamiya_screw_3x8_tapping
+name: 3 × 8mm タッピングビス（タミヤ 70145 付属）
+category: fastener
+
+size: [3.0, 3.0, 8.0]
+mount_holes: []
+hole_dia: 0.0
+
+confidence: datasheet
+source: https://www.tamiya.com/japan/products/70145/index.html
+datasheet: datasheets/tamiya_70145/70145.pdf
+note: >
+  タミヤ 70145 に付属し、ホイールのウェブ（板厚 2.0）を貫通してハブにねじ込む。
+  実測外径 3.0mm（2026-08-09、山の外どうし）。
+  相手側の下穴は φ2.7 設計（刷り上がり φ2.5 目標＝呼び径×0.83）＋入口面取り。
+  φ2.4 設計では FDM の縮みでビスが入らなかった実績がある。

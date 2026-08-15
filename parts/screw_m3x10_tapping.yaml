@@ -1,0 +1,14 @@
+id: screw_m3x10_tapping
+name: M3 × 10 タッピングネジ（樹脂直締め）
+category: fastener
+
+# [呼び径, 呼び径, 首下長さ] mm
+size: [3.0, 3.0, 10.0]
+mount_holes: []
+hole_dia: 0.0
+
+confidence: user_provided
+note: >
+  樹脂に直接ねじ込むタッピングネジ。下穴径・ボス外径・必要ねじ込み深さは
+  hwlib.features.SCREWS["M3"]（下穴 φ2.4、ボス外径 6.6、ねじ込み 6.0 以上）を使う。
+  本数と締める相手はプロジェクト側の note に書く。
