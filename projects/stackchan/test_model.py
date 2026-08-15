@@ -8,6 +8,13 @@ import pytest
 
 from projects.stackchan.model import ENV_H, STL_DIR, build_all, load_part
 
+# 公式 STL はリポジトリに含めない（サイズ大）。未取得なら skip。
+# 取得: uv run python -m projects.stackchan.fetch_stl
+pytestmark = pytest.mark.skipif(
+    not (STL_DIR / "StackChan-MainBody.stl").exists(),
+    reason="公式 STL 未取得。fetch_stl.py で取得してください",
+)
+
 # 公式 STL の実測外形（bbox）。取り違え・破損の検出用
 EXPECTED_SIZE = {
     "StackChan-Base": (48.0, 56.0, 11.1),

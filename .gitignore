@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 out/
+
+# スタックチャンの公式STL（サイズ大。fetch_stl.py で取得。リポジトリには含めない）
+projects/stackchan/stl/

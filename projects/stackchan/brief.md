@@ -10,7 +10,9 @@ M5Stack 版スタックチャン（超小型コミュニケーションロボッ
   2D 図から読み取れず何度も外したため、**公式の構造ファイル（STL）を取り込んで組み立てる**
   方式に切り替えた。部品形状は公式データどおり（近似ではない）。
   - 出典: https://github.com/m5stack/M5_Hardware/tree/master/Products/K151_StackChan/Structures
-  - STL は `projects/stackchan/stl/` に保存（Base / MainBody / BaseCover / Servo 系 / LightGuide）
+  - STL はサイズが大きく公式データのため**リポジトリには含めない**（`.gitignore`）。
+    `uv run python -m projects.stackchan.fetch_stl` で `projects/stackchan/stl/` に取得する
+    （Base / MainBody / BaseCover / Servo 系 / LightGuide の 10 部品）
   - STL は印刷用にバラバラ座標のため、各部品を原点基準に置き直して積み上げる。
     **組み立ての相対位置（首の隙間・積み上げ高さ・向き）は公式アセンブリが無いため近似**で、
     ユーザ確認しながら詰める
